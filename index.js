@@ -56,7 +56,7 @@ async function sendTweet(tweetText) {
 // --- Main runner ---
 async function run() {
   const prompt =
-    "Generate Trading, Investing or Personal Finance content, tips, tricks, rants or advice as a tweet (Importent : The post should be in Indian Markets context and language.). It must be unique, under 280 characters, plain text, may use emojis, and should not be vague.";
+    "Generate Options Trading strategy knowledge, adjustments, tips, tricks, rants or advice as a tweet (Importent : The post should be in Indian Stock Market context). It must be unique, under 280 characters, plain text, may use emojis, and should not be vague.";
 
   try {
     const tweet = await generateTweet(prompt);
