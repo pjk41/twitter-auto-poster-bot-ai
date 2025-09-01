@@ -1,9 +1,8 @@
-// By VishwaGauravIn (https://itsvg.in)
-
 const GenAI = require("@google/generative-ai");
 const { TwitterApi } = require("twitter-api-v2");
 const SECRETS = require("./SECRETS");
 
+// --- Twitter client setup ---
 const twitterClient = new TwitterApi({
   appKey: SECRETS.APP_KEY,
   appSecret: SECRETS.APP_SECRET,
@@ -11,36 +10,60 @@ const twitterClient = new TwitterApi({
   accessSecret: SECRETS.ACCESS_SECRET,
 });
 
+// --- Gemini client setup ---
 const generationConfig = {
-  maxOutputTokens: 400,
+  maxOutputTokens: 200, // tweets are short, no need for 400
 };
 const genAI = new GenAI.GoogleGenerativeAI(SECRETS.GEMINI_API_KEY);
+const model = genAI.getGenerativeModel({
+  model: "gemini-1.5-flash", // use flash (cheaper, faster, higher quota)
+  generationConfig,
+});
 
+// --- Retry wrapper for Gemini calls ---
+async function generateTweet(prompt, retries = 3) {
+  try {
+    const result = await model.generateContent(prompt);
+    return result.response.text();
+  } catch (err) {
+    if (err.message.includes("429") && retries > 0) {
+      console.log("Rate limited. Retrying in 40s...");
+      await new Promise((r) => setTimeout(r, 40000));
+      return generateTweet(prompt, retries - 1);
+    }
+    throw err;
+  }
+}
+
+// --- Tweet sending function ---
+async function sendTweet(tweetText) {
+  try {
+    if (!tweetText) throw new Error("Empty tweet text");
+
+    // Ensure max length 280 chars
+    if (tweetText.length > 280) {
+      tweetText = tweetText.slice(0, 277) + "...";
+    }
+
+    console.log("Generated Tweet:", tweetText);
+    await twitterClient.v2.tweet(tweetText);
+    console.log("✅ Tweet sent successfully!");
+  } catch (error) {
+    console.error("❌ Error sending tweet:", error);
+  }
+}
+
+// --- Main runner ---
 async function run() {
-  // For text-only input, use the gemini-pro model
-  const model = genAI.getGenerativeModel({
-    model: "gemini-1.5-pro",
-    generationConfig,
-  });
-
-  // Write your prompt here
   const prompt =
-    "generate Trading, Investing or personal finance content, tips and tricks or something new or some rant or some advice as a tweet, it should not be vague and should be unique; under 280 characters and should be plain text, you can use emojis";
+    "Generate Trading, Investing or Personal Finance content, tips, tricks, rants or advice as a tweet. It must be unique, under 280 characters, plain text, may use emojis, and should not be vague.";
 
-  const result = await model.generateContent(prompt);
-  const response = await result.response;
-  const text = response.text();
-  console.log(text);
-  sendTweet(text);
+  try {
+    const tweet = await generateTweet(prompt);
+    await sendTweet(tweet);
+  } catch (err) {
+    console.error("❌ Error generating or sending tweet:", err);
+  }
 }
 
 run();
-
-async function sendTweet(tweetText) {
-  try {
-    await twitterClient.v2.tweet(tweetText);
-    console.log("Tweet sent successfully!");
-  } catch (error) {
-    console.error("Error sending tweet:", error);
-  }
-}
