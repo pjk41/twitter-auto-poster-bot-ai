@@ -56,7 +56,7 @@ async function sendTweet(tweetText) {
 // --- Main runner ---
 async function run() {
   const prompt =
-    "Generate Options Trading strategy knowledge or adjustments or Risk management tips & tricks, rants or advice as a tweet. It must be unique, under 280 characters, plain text, may use emojis, and should not be vague. (Importent : The post should be in Indian Stock Market context, shouldn't sound like a AI bot, Dont give buy and sell tips on stocks and dont give index spot or levels).";
+    "Generate Options Trading tips & tricks as a tweet. It must be unique, under 280 characters, plain text, may use emojis, and should not be vague. You can use famous trading/investing quotes as well with the auther name. (Importent : The post should be in Indian Stock Market context, shouldn't sound like a AI bot, Dont give buy and sell tips on stocks and dont give index spot or levels).";
 
   try {
     const tweet = await generateTweet(prompt);
