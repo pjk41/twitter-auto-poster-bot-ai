@@ -56,18 +56,20 @@ async function sendTweet(tweetText) {
 // --- Main runner ---
 async function run() {
   const prompt = `
-  Generate eye-catching tweets (under 280 characters) about Options Trading 
-  in the Indian Stock Market. The tweets should:
+  Generate eye-catching tweets (strictly under 280 characters) 
+  about Options Trading in the Indian Stock Market. 
   
+  The tweets should:
   - Be unique and practical (tips, tricks, risk management, psychology, adjustments).
-  - Stay specific to trading derivatives (not long-term investing).
+  - Stay specific to options & derivatives (not long-term investing).
   - Avoid vague statements or motivational fluff.
   - Use emojis sparingly for engagement.
-  - May include quotes, but only if relevant to trading (not generic investing).
+  - May include quotes, but only if relevant to trading.
   - Must not give stock tips, index levels, or buy/sell calls.
   - Must sound like a real trader, not an AI.
-  - Each tweet should be standalone and post-ready.
+  - Each tweet must be self-contained, post-ready, and under 280 characters.
   `;
+
 
   try {
     const tweet = await generateTweet(prompt);
