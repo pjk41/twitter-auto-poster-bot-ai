@@ -57,8 +57,7 @@ async function sendTweet(tweetText) {
 async function run() {
   const prompt = `
   Generate eye-catching tweet (strictly under 275 characters) 
-  about Options Trading in the Indian Stock Market. Shouldn't sound AI generated. Use related trending hashtags & emojis
-  You can include knowledge on option greeks, strategies as well in case required.
+  about tips and tricks of Options Trading in the Stock Market.(Should be in Indian stock market context). Shouldn't sound AI generated. Use related trending hashtags & emojis.
   `;
 
   try {
