@@ -58,7 +58,7 @@ async function run() {
   const prompt = `
   Generate eye-catching tweet (strictly under 275 characters) 
   about Options Trading in the Indian Stock Market. Shouldn't sound AI generated. Use related trending hashtags & emojis
-  You can quote famous traders accross the world as well if you want.
+  You can include knowledge on option greeks, strategies as well in case required.
   `;
 
   try {
