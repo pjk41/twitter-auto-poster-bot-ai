@@ -16,7 +16,7 @@ const generationConfig = {
 };
 const genAI = new GenAI.GoogleGenerativeAI(SECRETS.GEMINI_API_KEY);
 const model = genAI.getGenerativeModel({
-  model: "gemini-1.5-flash", // use flash (cheaper, faster, higher quota)
+  model: "gemini-2.5-flash", // use flash (cheaper, faster, higher quota)
   generationConfig,
 });
 
