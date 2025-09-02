@@ -16,7 +16,7 @@ const generationConfig = {
 };
 const genAI = new GenAI.GoogleGenerativeAI(SECRETS.GEMINI_API_KEY);
 const model = genAI.getGenerativeModel({
-  model: "gemini-2.5-flash", // use flash (cheaper, faster, higher quota)
+  model: "gemini-1.5-flash", // use flash (cheaper, faster, higher quota)
   generationConfig,
 });
 
@@ -57,7 +57,7 @@ async function sendTweet(tweetText) {
 async function run() {
   const prompt = `
   Generate eye-catching tweet (strictly under 275 characters) 
-  about tips and tricks of Options Trading in the Stock Market.(Should be in Indian stock market context). Shouldn't sound AI generated. Use related trending hashtags & emojis.
+  about tips and tricks of Options Trading in the Stock Market. Good to have but not necessery - Option strategy knowledge, Greeks. (Should be in Indian stock market context). Shouldn't sound AI generated. Use related trending hashtags & emojis.
   `;
 
   try {
