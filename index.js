@@ -57,8 +57,8 @@ async function sendTweet(tweetText) {
 async function run() {
   const prompt = `
   Generate eye-catching tweet (strictly under 275 characters) 
-  about risk management in Options Trading. Good to have but not necessery - Option strategy knowledge, Greeks. (Should be in Indian stock market context). Shouldn't sound AI generated. Use related trending hashtags & emojis.
-  `;
+  about Options Trading. Good to have but not necessery - Option strategy knowledge, Greeks. (Post should be in Indian stock market context). Shouldn't sound AI generated. Use related trending hashtags & emojis.
+  Importent Note: Generate something new everytime you've been prompted with this, don't generate static content.`;
 
   try {
     const tweet = await generateTweet(prompt);
