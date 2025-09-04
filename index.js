@@ -1,34 +1,37 @@
-const GenAI = require("@google/generative-ai");
+
 const { TwitterApi } = require("twitter-api-v2");
-const SECRETS = require("./SECRETS");
+const { Configuration, OpenAIApi } = require("openai");
 
 // --- Twitter client setup ---
 const twitterClient = new TwitterApi({
-  appKey: SECRETS.APP_KEY,
-  appSecret: SECRETS.APP_SECRET,
-  accessToken: SECRETS.ACCESS_TOKEN,
-  accessSecret: SECRETS.ACCESS_SECRET,
+  appKey: process.env.APP_KEY,
+  appSecret: process.env.APP_SECRET,
+  accessToken: process.env.ACCESS_TOKEN,
+  accessSecret: process.env.ACCESS_SECRET,
 });
 
-// --- Gemini client setup ---
-const generationConfig = {
-  maxOutputTokens: 200, // tweets are short, no need for 400
-};
-const genAI = new GenAI.GoogleGenerativeAI(SECRETS.GEMINI_API_KEY);
-const model = genAI.getGenerativeModel({
-  model: "gemini-1.5-flash", // use flash (cheaper, faster, higher quota)
-  generationConfig,
-});
+// --- OpenAI client setup ---
+const openai = new OpenAIApi(
+  new Configuration({
+    apiKey: process.env.OPENAI_API_KEY,
+  })
+);
 
-// --- Retry wrapper for Gemini calls ---
+// --- Retry wrapper for OpenAI calls ---
 async function generateTweet(prompt, retries = 3) {
   try {
-    const result = await model.generateContent(prompt);
-    return result.response.text();
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o-mini",      // cheaper & fast, good for tweets
+      messages: [{ role: "user", content: prompt }],
+      max_tokens: 200,
+      temperature: 0.7,          // adds randomness to avoid repetitive tweets
+    });
+
+    return response.choices[0].message.content.trim();
   } catch (err) {
-    if (err.message.includes("429") && retries > 0) {
+    if (err.response?.status === 429 && retries > 0) {
       console.log("Rate limited. Retrying in 40s...");
-      await new Promise((r) => setTimeout(r, 40000));
+      await new Promise(r => setTimeout(r, 40000));
       return generateTweet(prompt, retries - 1);
     }
     throw err;
@@ -41,9 +44,7 @@ async function sendTweet(tweetText) {
     if (!tweetText) throw new Error("Empty tweet text");
 
     // Ensure max length 280 chars
-    if (tweetText.length > 280) {
-      tweetText = tweetText.slice(0, 277) + "...";
-    }
+    if (tweetText.length > 280) tweetText = tweetText.slice(0, 277) + "...";
 
     console.log("Generated Tweet:", tweetText);
     await twitterClient.v2.tweet(tweetText);
@@ -56,9 +57,9 @@ async function sendTweet(tweetText) {
 // --- Main runner ---
 async function run() {
   const prompt = `
-  Generate eye-catching post for X platform about Options Trading.
-  (strictly under 275 characters. Shouldn't sound AI generated.)
-  Use related trending hashtags & emojis.
+  Generate a catchy, eye-catching post for X platform about Options Trading.
+  Strictly under 275 characters. Shouldn't sound AI-generated.
+  Use trending hashtags & emojis.
   `;
 
   try {
