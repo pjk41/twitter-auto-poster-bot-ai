@@ -1,6 +1,6 @@
-
+// index.js
 const { TwitterApi } = require("twitter-api-v2");
-const OpenAI = require("openai");
+const GenAI = require("@google/generative-ai");
 
 // --- Twitter client setup ---
 const twitterClient = new TwitterApi({
@@ -10,26 +10,28 @@ const twitterClient = new TwitterApi({
   accessSecret: process.env.ACCESS_SECRET,
 });
 
-// --- OpenAI client setup ---
-const openai = new OpenAI.OpenAI({
-  apiKey: process.env.OPENAI_API_KEY
+// --- Gemini client setup ---
+const genAI = new GenAI.GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+const model = genAI.getGenerativeModel({
+  model: "gemini-1.5-flash", // free / fast / good for short tweets
+  generationConfig: {
+    maxOutputTokens: 200,
+    temperature: 0.7, // randomness to avoid repetitive tweets
+  },
 });
 
-// --- Retry wrapper for OpenAI calls ---
+// --- Retry wrapper for Gemini calls ---
 async function generateTweet(prompt, retries = 3) {
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",      // cheaper & fast, good for tweets
-      messages: [{ role: "user", content: prompt }],
-      max_tokens: 200,
-      temperature: 0.7,          // adds randomness to avoid repetitive tweets
-    });
-
-    return response.choices[0].message.content.trim();
+    const result = await model.generateContent(prompt);
+    return result.response.text();
   } catch (err) {
-    if (err.response?.status === 429 && retries > 0) {
+    if (
+      (err.message.includes("429") || err.message.includes("quota")) &&
+      retries > 0
+    ) {
       console.log("Rate limited. Retrying in 40s...");
-      await new Promise(r => setTimeout(r, 40000));
+      await new Promise((r) => setTimeout(r, 40000));
       return generateTweet(prompt, retries - 1);
     }
     throw err;
