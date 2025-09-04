@@ -1,6 +1,6 @@
 
 const { TwitterApi } = require("twitter-api-v2");
-const { Configuration, OpenAIApi } = require("openai");
+const OpenAI = require("openai");
 
 // --- Twitter client setup ---
 const twitterClient = new TwitterApi({
@@ -11,11 +11,9 @@ const twitterClient = new TwitterApi({
 });
 
 // --- OpenAI client setup ---
-const openai = new OpenAIApi(
-  new Configuration({
-    apiKey: process.env.OPENAI_API_KEY,
-  })
-);
+const openai = new OpenAI.OpenAI({
+  apiKey: process.env.OPENAI_API_KEY
+});
 
 // --- Retry wrapper for OpenAI calls ---
 async function generateTweet(prompt, retries = 3) {
