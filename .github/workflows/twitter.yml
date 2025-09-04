@@ -25,7 +25,7 @@ jobs:
 
       - name: Run Twitter bot
         env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           APP_KEY: ${{ secrets.APP_KEY }}
           APP_SECRET: ${{ secrets.APP_SECRET }}
           ACCESS_TOKEN: ${{ secrets.ACCESS_TOKEN }}
