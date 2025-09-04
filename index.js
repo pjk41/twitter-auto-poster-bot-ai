@@ -57,8 +57,8 @@ async function sendTweet(tweetText) {
 async function run() {
   const prompt = `
   Generate eye-catching post for X platform about Options Trading.
-  (strictly under 275 characters. Post should be in Indian stock market context).
-  Shouldn't sound AI generated. Use related trending hashtags & emojis.
+  (strictly under 275 characters. Shouldn't sound AI generated.)
+  Use related trending hashtags & emojis.
   `;
 
   try {
