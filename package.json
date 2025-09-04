@@ -1,7 +1,7 @@
 {
   "name": "automate-twitter-posts-with-ai",
   "version": "1.0.0",
-  "description": "Automated Twitter posts using OpenAI",
+  "description": "Automated Twitter posts using Google Gemini",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
@@ -10,7 +10,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "openai": "^4.11.0",
+    "@google/generative-ai": "^0.3.1",
     "twitter-api-v2": "^1.16.1",
     "dotenv": "^16.3.1"
   }
