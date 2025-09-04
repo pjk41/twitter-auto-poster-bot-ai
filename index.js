@@ -57,7 +57,7 @@ async function sendTweet(tweetText) {
 // --- Main runner ---
 async function run() {
   const prompt = `
-  Generate a catchy, eye-catching post for X platform about Options Trading.
+  Share interesting knowledge as post for X platform about Options Trading.
   Strictly under 275 characters. Shouldn't sound AI-generated.
   Use trending hashtags & emojis.
   `;
