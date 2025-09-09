@@ -57,6 +57,7 @@ async function sendTweet(tweetText) {
 // --- Main runner ---
 async function run() {
   const prompt = `
+  Importent : Generate something new everytime.
   Give me tip of the day on Options Trading.
   Strictly under 275 characters. Shouldn't sound AI-generated.
   Use trending hashtags & emojis.
