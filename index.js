@@ -57,7 +57,7 @@ async function sendTweet(tweetText) {
 // --- Main runner ---
 async function run() {
   const prompt = `
-  Share some interesting facts as post for X platform about Options Trading.
+  Give me tip of the day on Options Trading.
   Strictly under 275 characters. Shouldn't sound AI-generated.
   Use trending hashtags & emojis.
   `;
