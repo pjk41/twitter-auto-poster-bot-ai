@@ -1,11 +1,9 @@
 name: Auto Tweet Using AI
 
-# Runs 4 times a day at minute 30 UTC
 on:
   schedule:
-    - cron: "30 1,4,7,10,13 * * *"  # UTC hours
-
-  workflow_dispatch:  # manual trigger
+    - cron: "30 1,4,7,10,13 * * *"  # Runs 4 times a day at hh:30 UTC
+  workflow_dispatch: # manual trigger
 
 jobs:
   build:
@@ -23,6 +21,10 @@ jobs:
       - name: Install Dependencies
         run: npm install
 
+      - name: Setup GitHub CLI
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | gh auth login --with-token
+
       - name: Run Twitter bot
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
@@ -30,4 +32,5 @@ jobs:
           APP_SECRET: ${{ secrets.APP_SECRET }}
           ACCESS_TOKEN: ${{ secrets.ACCESS_TOKEN }}
           ACCESS_SECRET: ${{ secrets.ACCESS_SECRET }}
+          STOCK_INDEX: ${{ vars.STOCK_INDEX }}
         run: npm start
