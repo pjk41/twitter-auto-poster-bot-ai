@@ -166,20 +166,20 @@ async function sendTweet(tweetText) {
 async function run() {
   try {
     // --- Trading Tip ---
-    const tipPrompt = `
-    Important: Generate something new every time.
-    Give me a tip of the day on Options Trading.
-    Strictly under 275 characters. Shouldn't sound AI-generated.
-    Use trending hashtags & emojis.
-    `;
-    const tipTweet = await generateTweet(tipPrompt);
-    await sendTweet(tipTweet);
+    // const tipPrompt = `
+    // Important: Generate something new every time.
+    // Give me a tip of the day on Options Trading.
+    // Strictly under 275 characters. Shouldn't sound AI-generated.
+    // Use trending hashtags & emojis.
+    // `;
+    // const tipTweet = await generateTweet(tipPrompt);
+    // await sendTweet(tipTweet);
 
     // --- Stock Analysis ---
     const stock = getNextStock();
     const stockPrompt = `
     Generate a short stock analysis for ${stock}.
-    Include positives, negatives, and overall investment view (Buy/Sell/Hold).
+    Include positives, negatives, and overall investment view (+ve/-ve/Neutral).
     Strictly under 270 characters. Make it sound natural, not AI-generated.
     Add 1-2 relevant hashtags & an emoji.
     `;
@@ -190,5 +190,6 @@ async function run() {
     console.error("❌ Error generating or sending tweet:", err);
   }
 }
+
 
 run();
