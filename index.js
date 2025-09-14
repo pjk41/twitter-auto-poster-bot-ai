@@ -170,10 +170,17 @@ async function run() {
     // --- Stock Analysis ---
     const stock = getNextStock();
     const stockPrompt = `
-    Generate a short stock analysis for ${stock}.
-    Include positives, negatives, and overall investment view (+ve/-ve/Neutral).
+    Generate a short stock analysis for ${stock}. 
+    Use the following format exactly:
+    
+    *** ${stock} ***
+    Positive - 
+    Negative -
+    
+    Overall summary or conclusion
+    
+    Add 1-2 relevant hashtags & an emoji at the end.
     Strictly under 270 characters. Make it sound natural, not AI-generated.
-    Add 1-2 relevant hashtags & an emoji.
     `;
     const stockTweet = await generateTweet(stockPrompt);
     await sendTweet(stockTweet);
