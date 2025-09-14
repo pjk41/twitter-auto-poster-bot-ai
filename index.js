@@ -1,6 +1,7 @@
 // index.js
 const { TwitterApi } = require("twitter-api-v2");
 const GenAI = require("@google/generative-ai");
+const { execSync } = require("child_process");
 
 // --- Twitter client setup ---
 const twitterClient = new TwitterApi({
@@ -20,7 +21,7 @@ const model = genAI.getGenerativeModel({
   },
 });
 
-// --- List of stocks (expand to 100) ---
+// --- List of stocks ---
 const stocks = [
   "360ONE",
   "3M India",
@@ -118,13 +119,26 @@ const stocks = [
   "Varun Beverages",
   "Voltas",
   "Whirlpool",
-  "Zydus Lifesciences"
+  "Zydus Lifesciences",
 ];
 
-let stockIndex = 0;
+// --- Helper to get stock with persistent index ---
 function getNextStock() {
-  const stock = stocks[stockIndex];
-  stockIndex = (stockIndex + 1) % stocks.length;
+  const currentIndex = parseInt(process.env.STOCK_INDEX || "0", 10);
+  const stock = stocks[currentIndex % stocks.length];
+
+  // Calculate next index (wrap around if needed)
+  const nextIndex = (currentIndex + 1) % stocks.length;
+
+  // Persist the next index back to GitHub variable
+  try {
+    execSync(`gh variable set STOCK_INDEX --body "${nextIndex}"`, {
+      stdio: "inherit",
+    });
+  } catch (e) {
+    console.error("⚠️ Failed to update STOCK_INDEX:", e.message);
+  }
+
   return stock;
 }
 
@@ -165,16 +179,6 @@ async function sendTweet(tweetText) {
 // --- Main runner ---
 async function run() {
   try {
-    // --- Trading Tip ---
-    // const tipPrompt = `
-    // Important: Generate something new every time.
-    // Give me a tip of the day on Options Trading.
-    // Strictly under 275 characters. Shouldn't sound AI-generated.
-    // Use trending hashtags & emojis.
-    // `;
-    // const tipTweet = await generateTweet(tipPrompt);
-    // await sendTweet(tipTweet);
-
     // --- Stock Analysis ---
     const stock = getNextStock();
     const stockPrompt = `
@@ -185,11 +189,9 @@ async function run() {
     `;
     const stockTweet = await generateTweet(stockPrompt);
     await sendTweet(stockTweet);
-
   } catch (err) {
     console.error("❌ Error generating or sending tweet:", err);
   }
 }
-
 
 run();
