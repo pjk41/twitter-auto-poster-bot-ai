@@ -124,21 +124,9 @@ const stocks = [
 
 // --- Helper to get stock with persistent index ---
 function getNextStock() {
-  const currentIndex = parseInt(process.env.STOCK_INDEX || "0", 10);
-  console.log("🔎 Current STOCK_INDEX from env:", currentIndex);
-
-  const stock = stocks[currentIndex % stocks.length];
-  const nextIndex = (currentIndex + 1) % stocks.length;
-
-  try {
-    execSync(`gh variable set STOCK_INDEX --body "${nextIndex}"`, {
-      stdio: "inherit",
-    });
-    console.log("✅ Updated STOCK_INDEX to:", nextIndex);
-  } catch (e) {
-    console.error("⚠️ Failed to update STOCK_INDEX:", e.message);
-  }
-
+  const randomIndex = Math.floor(Math.random() * stocks.length);
+  const stock = stocks[randomIndex];
+  console.log(`🎲 Selected stock #${randomIndex}: ${stock}`);
   return stock;
 }
 
