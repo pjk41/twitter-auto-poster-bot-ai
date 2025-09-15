@@ -170,12 +170,12 @@ async function run() {
     // --- Stock Analysis ---
     const stock = getNextStock();
     const stockPrompt = `
-    Generate a short stock analysis for ${stock}. 
+    Generate a short stock analysis for ${stock} by referring to Pros and Cons sections of https://www.screener.in/
     Use the following format exactly:
     
     *** ${stock} ***
-    Positive - 
-    Negative -
+    Pros - 
+    Cons -
     
     Overall summary or conclusion
     
