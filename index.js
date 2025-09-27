@@ -24,6 +24,12 @@ async function listAvailableModels() {
   models.forEach(m => console.log("-", m.name));
 }
 
+async function listAvailableModels() {
+  const models = await genAI.listModels();
+  console.log("Available models:");
+  models.forEach(m => console.log("-", m.name));
+}
+
 // --- List of stocks ---
 const stocks = [
   "360ONE",
@@ -408,6 +414,7 @@ async function sendTweet(tweetText) {
 // --- Main runner ---
 async function run() {
   try {
+    await listAvailableModels(); // 👈 print models first
     // --- Stock Analysis ---
     const stock = getNextStock();
     const stockPrompt = `
