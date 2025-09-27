@@ -1,7 +1,13 @@
 // index.js
-const { TwitterApi } = require("twitter-api-v2");
-const GenAI = require("@google/generative-ai");
-const { execSync } = require("child_process");
+import { TwitterApi } from "twitter-api-v2";
+import { GoogleGenerativeAI } from "@google/generative-ai";
+import { execSync } from "child_process";
+import dotenv from "dotenv";
+
+dotenv.config();
+
+const models = await genAI.listModels();
+console.log(models);
 
 // --- Twitter client setup ---
 const twitterClient = new TwitterApi({
@@ -12,17 +18,14 @@ const twitterClient = new TwitterApi({
 });
 
 // --- Gemini client setup ---
-const genAI = new GenAI.GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 const model = genAI.getGenerativeModel({
-  model: "gemini-1.5-flash-latest", // free / fast / good for short tweets
+  model: "gemini-pro", // or whichever from listModels()
   generationConfig: {
     maxOutputTokens: 300,
     temperature: 0.7,
   },
 });
-
-const models = await genAI.listModels();
-console.log(models);
 
 // --- List of stocks ---
 const stocks = [
