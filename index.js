@@ -409,13 +409,13 @@ async function run() {
     Generate a short stock analysis for ${stock} by referring to Pros and Cons sections of https://www.screener.in/
     Use the following format exactly:
     
-    *** ${stock} ***
+    ** ${stock} **
     Pros - 
     Cons -
     
     Overall summary or conclusion
     
-    Add 1-2 relevant hashtags & an emoji at the end.
+    No debt info please. Add 1-2 relevant hashtags & an emoji at the end.
     Strictly under 270 characters. Make it sound natural, not AI-generated.
     `;
     const stockTweet = await generateTweet(stockPrompt);
