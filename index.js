@@ -17,13 +17,6 @@ const twitterClient = new TwitterApi({
 // --- Gemini client setup ---
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
-// 🔍 Debug: list models (optional)
-async function listAvailableModels() {
-  const models = await genAI.listModels();
-  console.log("Available models:");
-  models.forEach(m => console.log("-", m.name));
-}
-
 // --- List of stocks ---
 const stocks = [
   "360ONE",
@@ -372,7 +365,7 @@ function getNextStock() {
 // --- Retry wrapper for Gemini calls ---
 async function generateTweet(prompt, retries = 3) {
   try {
-    const model = genAI.getGenerativeModel({ model: "gemini-pro" }); // pick gemini-pro (or gemini-1.5-flash if available)
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" }); // pick gemini-pro (or gemini-1.5-flash if available)
     const result = await model.generateContent(prompt);
     return result.response.text();
   } catch (err) {
@@ -408,7 +401,6 @@ async function sendTweet(tweetText) {
 // --- Main runner ---
 async function run() {
   try {
-    await listAvailableModels(); // 👈 print models first
     // --- Stock Analysis ---
     const stock = getNextStock();
     const stockPrompt = `
