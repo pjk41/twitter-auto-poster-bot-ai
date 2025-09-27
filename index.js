@@ -24,13 +24,6 @@ async function listAvailableModels() {
   models.forEach(m => console.log("-", m.name));
 }
 
-// --- Example function to generate a tweet ---
-async function generateTweet(prompt) {
-  const model = genAI.getGenerativeModel({ model: "gemini-pro" });
-  const result = await model.generateContent(prompt);
-  return result.response.text();
-}
-
 // --- List of stocks ---
 const stocks = [
   "360ONE",
@@ -379,6 +372,7 @@ function getNextStock() {
 // --- Retry wrapper for Gemini calls ---
 async function generateTweet(prompt, retries = 3) {
   try {
+    const model = genAI.getGenerativeModel({ model: "gemini-pro" }); // pick gemini-pro (or gemini-1.5-flash if available)
     const result = await model.generateContent(prompt);
     return result.response.text();
   } catch (err) {
@@ -393,6 +387,7 @@ async function generateTweet(prompt, retries = 3) {
     throw err;
   }
 }
+
 
 // --- Tweet sending function ---
 async function sendTweet(tweetText) {
