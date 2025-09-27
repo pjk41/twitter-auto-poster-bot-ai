@@ -6,9 +6,6 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
-const models = await genAI.listModels();
-console.log(models);
-
 // --- Twitter client setup ---
 const twitterClient = new TwitterApi({
   appKey: process.env.APP_KEY,
@@ -19,13 +16,20 @@ const twitterClient = new TwitterApi({
 
 // --- Gemini client setup ---
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-const model = genAI.getGenerativeModel({
-  model: "gemini-pro", // or whichever from listModels()
-  generationConfig: {
-    maxOutputTokens: 300,
-    temperature: 0.7,
-  },
-});
+
+// 🔍 Debug: list models (optional)
+async function listAvailableModels() {
+  const models = await genAI.listModels();
+  console.log("Available models:");
+  models.forEach(m => console.log("-", m.name));
+}
+
+// --- Example function to generate a tweet ---
+async function generateTweet(prompt) {
+  const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+  const result = await model.generateContent(prompt);
+  return result.response.text();
+}
 
 // --- List of stocks ---
 const stocks = [
