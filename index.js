@@ -21,6 +21,9 @@ const model = genAI.getGenerativeModel({
   },
 });
 
+const models = await genAI.listModels();
+console.log(models);
+
 // --- List of stocks ---
 const stocks = [
   "360ONE",
