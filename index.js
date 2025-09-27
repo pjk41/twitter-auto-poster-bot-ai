@@ -14,7 +14,7 @@ const twitterClient = new TwitterApi({
 // --- Gemini client setup ---
 const genAI = new GenAI.GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 const model = genAI.getGenerativeModel({
-  model: "gemini-1.5-flash", // free / fast / good for short tweets
+  model: "gemini-1.5-flash-latest", // free / fast / good for short tweets
   generationConfig: {
     maxOutputTokens: 300,
     temperature: 0.7,
