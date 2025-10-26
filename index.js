@@ -524,36 +524,36 @@ const stocks = [
   "eClerx Services "
 ];
 
-// --- Helper to get stock with persistent index ---
+// --- Persistent index for cycling through stocks ---
+let currentIndex = 0;
+
+// --- Helper to get next stock in a round-robin fashion ---
 function getNextStock() {
-  const randomIndex = Math.floor(Math.random() * stocks.length);
-  const stock = stocks[randomIndex];
-  console.log(`🎲 Selected stock #${randomIndex}: ${stock}`);
+  if (!stocks || stocks.length === 0) throw new Error("Stocks array is empty");
+  const stock = stocks[currentIndex];
+  console.log(`🎲 Selected stock #${currentIndex}: ${stock}`);
+  currentIndex = (currentIndex + 1) % stocks.length; // wrap around
   return stock;
 }
 
 // --- Retry wrapper for Gemini calls ---
-async function generateTweet(prompt, retries = 3) {
+async function generateTweet(prompt, retries = 3, delayMs = 40000) {
   try {
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" }); // pick gemini-pro (or gemini-1.5-flash if available)
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
     const result = await model.generateContent(prompt);
     return result.response.text();
   } catch (err) {
-    if (
-      (err.message.includes("429") || err.message.includes("quota")) &&
-      retries > 0
-    ) {
-      console.log("Rate limited. Retrying in 40s...");
-      await new Promise((r) => setTimeout(r, 40000));
-      return generateTweet(prompt, retries - 1);
+    if ((err.message.includes("429") || err.message.includes("quota")) && retries > 0) {
+      console.log(`Rate limited. Retrying in ${delayMs / 1000}s...`);
+      await new Promise((r) => setTimeout(r, delayMs));
+      return generateTweet(prompt, retries - 1, delayMs);
     }
     throw err;
   }
 }
 
-
-// --- Tweet sending function ---
-async function sendTweet(tweetText) {
+// --- Tweet sending function with max-length enforcement ---
+async function sendTweet(tweetText, replyToId = null) {
   try {
     if (!tweetText) throw new Error("Empty tweet text");
 
@@ -561,33 +561,50 @@ async function sendTweet(tweetText) {
     if (tweetText.length > 280) tweetText = tweetText.slice(0, 277) + "...";
 
     console.log("Generated Tweet:", tweetText);
-    await twitterClient.v2.tweet(tweetText);
+
+    const tweetData = replyToId
+      ? { reply: { in_reply_to_tweet_id: replyToId } }
+      : {};
+
+    const posted = await twitterClient.v2.tweet(tweetText, tweetData);
     console.log("✅ Tweet sent successfully!");
+    return posted.data.id; // return tweet ID for threading
   } catch (error) {
     console.error("❌ Error sending tweet:", error);
+    return null;
   }
 }
 
 // --- Main runner ---
 async function run() {
   try {
-    // --- Stock Analysis ---
     const stock = getNextStock();
-    const stockPrompt = `
-    Generate a short stock analysis for ${stock} by referring to Pros and Cons sections of https://www.screener.in/
-    Use the following format exactly:
-    
-    ** ${stock} **
-    Pros - 
-    Cons -
-    
-    Overall summary or conclusion
-    
-    No debt info please. Add 1-2 relevant hashtags & an emoji at the end.
-    Strictly under 270 characters. Make it sound natural, not AI-generated.
-    `;
-    const stockTweet = await generateTweet(stockPrompt);
-    await sendTweet(stockTweet);
+
+    // --- Teaser / Hook Tweet ---
+    const teaserPrompt = `
+Write a short, engaging X post introducing the stock ${stock}.
+Hint that a detailed analysis will appear in the comments.
+Keep it under 220 characters, add 1-2 finance emojis.
+Make people curious to open the post and read the full analysis.
+`;
+    const teaserTweet = await generateTweet(teaserPrompt);
+    const mainTweetId = await sendTweet(teaserTweet);
+
+    // --- Analysis Tweet (reply) ---
+    const analysisPrompt = `
+Generate a concise stock analysis for ${stock} using Pros and Cons from https://www.screener.in/
+Use this format exactly:
+
+**${stock}**
+Pros -
+Cons -
+Overall takeaway in one line.
+Add 1-2 finance-related hashtags & an emoji at the end.
+Strictly under 270 characters. Make it natural, not AI-like.
+`;
+    const analysisTweet = await generateTweet(analysisPrompt);
+    await sendTweet(analysisTweet, mainTweetId);
+
   } catch (err) {
     console.error("❌ Error generating or sending tweet:", err);
   }
