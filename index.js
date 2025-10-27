@@ -527,14 +527,15 @@ const stocks = [
 // --- Persistent index for cycling through stocks ---
 let currentIndex = 0;
 
-// --- Helper to get next stock in a round-robin fashion ---
+// --- Helper to get a random stock each time ---
 function getNextStock() {
   if (!stocks || stocks.length === 0) throw new Error("Stocks array is empty");
-  const stock = stocks[currentIndex];
-  console.log(`🎲 Selected stock #${currentIndex}: ${stock}`);
-  currentIndex = (currentIndex + 1) % stocks.length; // wrap around
+  const index = Math.floor(Math.random() * stocks.length);
+  const stock = stocks[index];
+  console.log(`🎲 Randomly selected stock #${index}: ${stock}`);
   return stock;
 }
+
 
 // --- Retry wrapper for Gemini calls ---
 async function generateTweet(prompt, retries = 3, delayMs = 40000) {
