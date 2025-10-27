@@ -602,6 +602,7 @@ Cons -
 Overall takeaway in one line.
 Add 1-2 finance-related hashtags & an emoji at the end.
 Strictly under 270 characters. Make it natural, not AI-like.
+Don't mention debt related info.
 `;
     const analysisTweet = await generateTweet(analysisPrompt);
     await sendTweet(analysisTweet, mainTweetId);
