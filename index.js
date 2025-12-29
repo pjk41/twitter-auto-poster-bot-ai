@@ -568,7 +568,7 @@ async function sendTweet(tweetText, replyToId = null) {
       : {};
 
     const posted = await twitterClient.v2.tweet(tweetText, tweetData);
-    console.log("✅ Tweet sent successfully!");
+    console.log("✅ Tweet sent successfully!!");
     return posted.data.id; // return tweet ID for threading
   } catch (error) {
     console.error("❌ Error sending tweet:", error);
