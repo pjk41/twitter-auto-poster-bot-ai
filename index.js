@@ -536,7 +536,6 @@ function getNextStock() {
   return stock;
 }
 
-
 // --- Retry wrapper for Gemini calls ---
 async function generateTweet(prompt, retries = 3, delayMs = 40000) {
   try {
@@ -551,6 +550,16 @@ async function generateTweet(prompt, retries = 3, delayMs = 40000) {
     }
     throw err;
   }
+}
+
+// --- Helper: split Gemini response into tweet-sized posts ---
+function splitIntoPosts(text) {
+  if (!text) return [];
+
+  return text
+    .split(/\n(?=Post\s*\d+:)/i)
+    .map(p => p.replace(/^Post\s*\d+:\s*/i, "").trim())
+    .filter(Boolean);
 }
 
 // --- Tweet sending function with max-length enforcement ---
