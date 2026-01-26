@@ -691,38 +691,38 @@ Do NOT use emojis except in Post 1.
       return;
     }
 
-    // --- Normalize whitespace for clean formatting ---
+    // --- Normalize + safely split posts ---
     const finalPosts = [];
     
-    cleanedPosts.forEach((post, idx) => {
-      // Posts 1 & 2 are safe
+    parsed.posts.forEach((post, idx) => {
+      if (!post) return;
+    
+      const trimmed = post.replace(/\n{3,}/g, "\n\n").trim();
+    
+      // Post 1 & 2 → just hard limit
       if (idx < 2) {
-        finalPosts.push(post.slice(0, 260));
+        finalPosts.push(trimmed.slice(0, 260));
         return;
       }
     
-      // Handle Business + Outlook carefully
-      const outlookMatch = post.match(/Outlook:.*$/s);
+      // Handle Business + Outlook posts
+      const outlookMatch = trimmed.match(/Outlook:.*$/s);
     
       if (!outlookMatch) {
-        // No outlook → simple safe truncate
-        finalPosts.push(post.slice(0, 260));
+        finalPosts.push(trimmed.slice(0, 260));
         return;
       }
     
       const outlook = outlookMatch[0].trim();
-      const business = post.replace(outlook, "").trim();
+      const business = trimmed.replace(outlook, "").trim();
     
-      // --- Business tweet ---
-      if (business.length > 50) {
+      if (business.length > 40) {
         finalPosts.push(business.slice(0, 260));
       }
     
-      // --- Outlook tweet (ALWAYS clean & final) ---
-      finalPosts.push(outlook);
+      // Outlook MUST be last & clean
+      finalPosts.push(outlook.slice(0, 260));
     });
-
-
     
     console.log(`🧵 Posting ${finalPosts.length} tweets`);
     
@@ -732,7 +732,6 @@ Do NOT use emojis except in Post 1.
       replyToId = await sendTweet(tweet, replyToId);
       if (!replyToId) break;
     }
-
 
   } catch (err) {
     console.error("❌ Thread generation failed:", err);
