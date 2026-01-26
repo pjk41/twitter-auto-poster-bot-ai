@@ -606,7 +606,10 @@ async function sendTweet(tweetText, replyToId = null) {
 // --- Main runner ---
 async function run() {
   try {
-    const stock = getNextStock();
+    const stock = getNextStock()
+      .replace(/&amp;/g, "&")
+      .replace(/\s+/g, " ")
+      .trim();
 
     const threadPrompt = `
 Generate a DAILY STOCK THREAD for X (Twitter).
@@ -651,18 +654,13 @@ Red Flags:
 • point 1
 • point 2
 
-Keep it crisp. No long sentences.
-
 Post 3+ (Business & Outlook):
 • Brief business / revenue model
-• Recent developments or direction
-• High-level numbers (growth, margins, ROCE — NO figures)
+• Recent developments
+• High-level numbers (NO figures)
 
 End with:
-Outlook: Write ONE clear investor-style sentence such as:
-- "Worth keeping on watchlist at current levels"
-- "Can be added gradually on dips for long-term investors"
-- "Better to wait for clearer growth visibility"
+Outlook: ONE clear investor-style sentence.
 
 Last post MUST end with exactly ONE hashtag.
 Do NOT use multiple hashtags.
@@ -671,68 +669,60 @@ Do NOT use emojis except in Post 1.
 
     const raw = await generateTweet(threadPrompt);
 
-    let parsed;
-    try {
-      // Remove markdown code fences if present
-      const cleaned = raw
-        .replace(/```json/i, "")
-        .replace(/```/g, "")
-        .trim();
-    
-      parsed = JSON.parse(cleaned);
-    } catch (e) {
-      console.error("❌ Failed to parse Gemini JSON");
-      console.log(raw);
-      return;
-    }
+    const cleaned = raw
+      .replace(/```json/i, "")
+      .replace(/```/g, "")
+      .trim();
 
-    if (!parsed.posts || !parsed.posts.length) {
+    const parsed = JSON.parse(cleaned);
+
+    if (!parsed.posts?.length) {
       console.error("❌ No posts generated");
       return;
     }
 
-    // --- Normalize + safely split posts ---
+    const safeTrim = (text, limit = 260) =>
+      text.length <= limit
+        ? text
+        : text.slice(0, limit).replace(/\s+\S*$/, "").trim();
+
     const finalPosts = [];
-    
+
     parsed.posts.forEach((post, idx) => {
-      if (!post) return;
-    
       const trimmed = post.replace(/\n{3,}/g, "\n\n").trim();
-    
-      // Post 1 & 2 → just hard limit
+
       if (idx < 2) {
-        finalPosts.push(trimmed.slice(0, 260));
+        finalPosts.push(safeTrim(trimmed));
         return;
       }
-    
-      // Handle Business + Outlook posts
+
       const outlookMatch = trimmed.match(/Outlook:.*$/s);
-    
+
       if (!outlookMatch) {
-        finalPosts.push(trimmed.slice(0, 260));
+        finalPosts.push(safeTrim(trimmed));
         return;
       }
-    
-      const outlook = outlookMatch[0].trim();
-      const business = trimmed.replace(outlook, "").trim();
-    
-      if (business.length > 40) {
-        finalPosts.push(business.slice(0, 260));
-      }
-    
-      // Outlook MUST be last & clean
-      finalPosts.push(outlook.slice(0, 260));
+
+      const business = trimmed.replace(outlookMatch[0], "").trim();
+      const outlookText =
+        outlookMatch[0].replace(/#\S+/g, "").trim() +
+        " #" +
+        stock.replace(/\s+/g, "");
+
+      if (business) finalPosts.push(safeTrim(business));
+      finalPosts.push(safeTrim(outlookText));
     });
-    
+
     console.log(`🧵 Posting ${finalPosts.length} tweets`);
-    
+
     let replyToId = null;
-    
     for (const tweet of finalPosts) {
       replyToId = await sendTweet(tweet, replyToId);
       if (!replyToId) break;
-    }
 
+      // prevent Twitter rate limit
+      await new Promise(r => setTimeout(r, 2500));
+    }
   } catch (err) {
     console.error("❌ Thread generation failed:", err);
   }
