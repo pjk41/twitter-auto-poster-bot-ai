@@ -673,9 +673,15 @@ Do NOT use emojis except in Post 1.
 
     let parsed;
     try {
-      parsed = JSON.parse(raw);
+      // Remove markdown code fences if present
+      const cleaned = raw
+        .replace(/```json/i, "")
+        .replace(/```/g, "")
+        .trim();
+    
+      parsed = JSON.parse(cleaned);
     } catch (e) {
-      console.error("❌ Gemini did not return valid JSON");
+      console.error("❌ Failed to parse Gemini JSON");
       console.log(raw);
       return;
     }
