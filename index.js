@@ -586,7 +586,7 @@ async function sendTweet(tweetText, replyToId = null) {
     if (!tweetText) throw new Error("Empty tweet text");
 
     // Ensure max length 280 chars
-    if (tweetText.length > 280) tweetText = tweetText.slice(0, 277) + "...";
+    // if (tweetText.length > 280) tweetText = tweetText.slice(0, 277) + "...";
 
     console.log("Generated Tweet:", tweetText);
 
@@ -604,6 +604,7 @@ async function sendTweet(tweetText, replyToId = null) {
 }
 
 // --- Main runner ---
+// --- Main runner ---
 async function run() {
   try {
     const stock = getNextStock();
@@ -613,7 +614,10 @@ Generate a DAILY STOCK THREAD for X (Twitter).
 
 Stock: ${stock}
 
-Return output STRICTLY in this JSON format:
+Return output STRICTLY in valid JSON.
+No markdown. No explanations. Only JSON.
+
+JSON format:
 {
   "posts": [
     "Post text here",
@@ -624,42 +628,66 @@ Return output STRICTLY in this JSON format:
 
 Rules:
 - Each post must be UNDER 270 characters.
-- Split content logically by MEANING, not arbitrarily.
-- Do NOT exceed character limits.
+- Split content logically by MEANING.
 - Write like a human investor.
+- Max 1 emoji per post.
 
-Content structure:
-Post 1:
+STRUCTURE:
+
+Post 1 (Hook):
 Stock of the Day 🚀
 !! ${stock} !!
-A catchy intro explaining industry, products, or a unique insight.
+Catchy intro about industry, products, or a unique angle.
 
-Post 2+:
+Post 2 (MANDATORY ORDER):
+Start EXACTLY like this:
+CMP: ₹<value> | 52W High: ₹<value> | 52W Low: ₹<value>
+
+Then immediately:
+Green Flags:
+• key strengths
+Red Flags:
+• key risks
+
+Post 3+ (if needed):
 - Business & revenue model
-- Green flags
-- Red flags
 - Recent developments
 - High-level numbers (growth, margins, ROCE – no exact figures)
 - Outlook (choose ONE):
   Strong contender / Watchlist / Near qualifier / Avoid for now
 
 Constraints:
-- No debt discussion
-- No buy/sell advice
+- Do NOT mention debt
+- Do NOT give buy/sell advice
 - No disclaimers
-- Last post must include exactly ONE hashtag
+- Final post must include exactly ONE hashtag
 `;
 
-
     const rawThread = await generateTweet(threadPrompt);
-    const posts = splitIntoPosts(rawThread);
 
-    if (posts.length === 0) throw new Error("No posts generated");
+    let parsed;
+    try {
+      parsed = JSON.parse(rawThread.trim());
+    } catch (err) {
+      console.error("❌ Invalid JSON from Gemini");
+      console.log(rawThread);
+      return;
+    }
+
+    if (!parsed.posts || !Array.isArray(parsed.posts) || parsed.posts.length === 0) {
+      console.error("❌ Gemini returned empty posts array");
+      console.log(parsed);
+      return;
+    }
+
+    // Word-level safety split (final guardrail)
+    const posts = parsed.posts.flatMap(p => splitByWords(p, 270));
+
+    console.log(`🧵 Posting ${posts.length} tweets`);
 
     let previousTweetId = null;
-
-    for (let i = 0; i < posts.length; i++) {
-      previousTweetId = await sendTweet(posts[i], previousTweetId);
+    for (const post of posts) {
+      previousTweetId = await sendTweet(post, previousTweetId);
       if (!previousTweetId) break;
     }
 
