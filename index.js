@@ -719,10 +719,11 @@ Do NOT use emojis except in Post 1.
     for (const tweet of finalPosts) {
       replyToId = await sendTweet(tweet, replyToId);
       if (!replyToId) break;
-
-      // prevent Twitter rate limit
-      await new Promise(r => setTimeout(r, 2500));
+    
+      // ⏳ critical: avoid X rate limits
+      await new Promise(resolve => setTimeout(resolve, 30_000)); // 30 seconds
     }
+
   } catch (err) {
     console.error("❌ Thread generation failed:", err);
   }
