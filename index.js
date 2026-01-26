@@ -692,40 +692,36 @@ Do NOT use emojis except in Post 1.
     }
 
     // --- Normalize whitespace for clean formatting ---
-    const cleanedPosts = parsed.posts.map(p =>
-      p
-        .replace(/\n{3,}/g, "\n\n") // collapse extra newlines
-        .replace(/[ \t]+/g, " ")
-        .trim()
-    );
+    const finalPosts = [];
     
-    // --- FINAL RULE: 1 Gemini post = 1 tweet ---
-    const finalPosts = cleanedPosts.map(post => {
-      if (post.length <= 280) return post;
-    
-      console.warn("⚠️ Post exceeded limit, trimming safely");
-    
-      // If Outlook exists, preserve it
-      const outlookMatch = post.match(/Outlook:.*$/s);
-    
-      if (outlookMatch) {
-        const outlook = outlookMatch[0].trim();
-    
-        // Leave room for Outlook + newline
-        const maxBodyLen = 280 - outlook.length - 2;
-    
-        const body = post
-          .replace(outlook, "")
-          .trim()
-          .slice(0, maxBodyLen)
-          .trim();
-    
-        return `${body}\n\n${outlook}`;
+    cleanedPosts.forEach((post, idx) => {
+      // Posts 1 & 2 are safe
+      if (idx < 2) {
+        finalPosts.push(post.slice(0, 260));
+        return;
       }
     
-      // Fallback: hard truncate
-      return post.slice(0, 277).trim() + "...";
+      // Handle Business + Outlook carefully
+      const outlookMatch = post.match(/Outlook:.*$/s);
+    
+      if (!outlookMatch) {
+        // No outlook → simple safe truncate
+        finalPosts.push(post.slice(0, 260));
+        return;
+      }
+    
+      const outlook = outlookMatch[0].trim();
+      const business = post.replace(outlook, "").trim();
+    
+      // --- Business tweet ---
+      if (business.length > 50) {
+        finalPosts.push(business.slice(0, 260));
+      }
+    
+      // --- Outlook tweet (ALWAYS clean & final) ---
+      finalPosts.push(outlook);
     });
+
 
     
     console.log(`🧵 Posting ${finalPosts.length} tweets`);
