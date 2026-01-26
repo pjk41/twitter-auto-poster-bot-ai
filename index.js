@@ -562,6 +562,24 @@ function splitIntoPosts(text) {
     .filter(Boolean);
 }
 
+function splitByWords(text, maxLen = 270) {
+  const words = text.split(" ");
+  const chunks = [];
+  let current = "";
+
+  for (const word of words) {
+    if ((current + " " + word).length > maxLen) {
+      chunks.push(current.trim());
+      current = word;
+    } else {
+      current += " " + word;
+    }
+  }
+
+  if (current.trim()) chunks.push(current.trim());
+  return chunks;
+}
+
 // --- Tweet sending function with max-length enforcement ---
 async function sendTweet(tweetText, replyToId = null) {
   try {
@@ -591,43 +609,47 @@ async function run() {
     const stock = getNextStock();
 
     const threadPrompt = `
-You are writing a DAILY STOCK THREAD for X (Twitter).
+Generate a DAILY STOCK THREAD for X (Twitter).
 
-Stock name: ${stock}
+Stock: ${stock}
+
+Return output STRICTLY in this JSON format:
+{
+  "posts": [
+    "Post text here",
+    "Post text here",
+    "Post text here"
+  ]
+}
 
 Rules:
-- Total content may be split into MULTIPLE posts (tweets).
-- Each post MUST be under 270 characters.
-- If content is long, intelligently split into 2–5 posts.
-- Return output strictly as a numbered list (Post 1, Post 2, etc).
-- No emojis overload (max 1 emoji per post).
-- Language should feel HUMAN, not AI-like.
+- Each post must be UNDER 270 characters.
+- Split content logically by MEANING, not arbitrarily.
+- Do NOT exceed character limits.
+- Write like a human investor.
 
-THREAD STRUCTURE:
-
-Post 1 (Hook):
+Content structure:
+Post 1:
 Stock of the Day 🚀
 !! ${stock} !!
-A catchy, interesting intro explaining:
-- Industry
-- Core products/services
-- Any unique or differentiating aspect
+A catchy intro explaining industry, products, or a unique insight.
 
-Post 2+ (Analysis – split automatically if needed):
-Cover the following points clearly and concisely:
+Post 2+:
 - Business & revenue model
-- Green Flags
-- Red Flags
+- Green flags
+- Red flags
 - Recent developments
-- High-level numbers
-- Outlook (Strong contender / Watchlist / Near qualifier / Avoid)
+- High-level numbers (growth, margins, ROCE – no exact figures)
+- Outlook (choose ONE):
+  Strong contender / Watchlist / Near qualifier / Avoid for now
 
 Constraints:
-- Do NOT mention debt.
-- Do NOT give buy/sell advice.
-- No disclaimers.
-- End final post with 1 hashtag.
+- No debt discussion
+- No buy/sell advice
+- No disclaimers
+- Last post must include exactly ONE hashtag
 `;
+
 
     const rawThread = await generateTweet(threadPrompt);
     const posts = splitIntoPosts(rawThread);
