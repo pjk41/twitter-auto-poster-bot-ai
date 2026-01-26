@@ -581,34 +581,59 @@ async function run() {
   try {
     const stock = getNextStock();
 
-    // --- Teaser / Hook Tweet ---
-    const teaserPrompt = `
-Write a short, engaging X post introducing the stock ${stock}.
-Hint that a detailed analysis will appear in the comments.
-Keep it under 220 characters, add 1-2 finance emojis.
-Make people curious to open the post and read the full analysis.
-`;
-    const teaserTweet = await generateTweet(teaserPrompt);
-    const mainTweetId = await sendTweet(teaserTweet);
+    const threadPrompt = `
+You are writing a DAILY STOCK THREAD for X (Twitter).
 
-    // --- Analysis Tweet (reply) ---
-    const analysisPrompt = `
-Generate a concise stock analysis for ${stock} using Pros and Cons from https://www.screener.in/
-Use this format exactly:
+Stock name: ${stock}
 
-**${stock}**
-Pros -
-Cons -
-Overall takeaway in one line.
-Add 1-2 finance-related hashtags & an emoji at the end.
-Strictly under 270 characters. Make it natural, not AI-like.
-Don't mention debt related info.
+Rules:
+- Total content may be split into MULTIPLE posts (tweets).
+- Each post MUST be under 270 characters.
+- If content is long, intelligently split into 2–5 posts.
+- Return output strictly as a numbered list (Post 1, Post 2, etc).
+- No emojis overload (max 1 emoji per post).
+- Language should feel HUMAN, not AI-like.
+
+THREAD STRUCTURE:
+
+Post 1 (Hook):
+Stock of the Day 🚀
+!! ${stock} !!
+A catchy, interesting intro explaining:
+- Industry
+- Core products/services
+- Any unique or differentiating aspect
+
+Post 2+ (Analysis – split automatically if needed):
+Cover the following points clearly and concisely:
+- Business & revenue model
+- Green Flags
+- Red Flags
+- Recent developments
+- High-level numbers
+- Outlook (Strong contender / Watchlist / Near qualifier / Avoid)
+
+Constraints:
+- Do NOT mention debt.
+- Do NOT give buy/sell advice.
+- No disclaimers.
+- End final post with 1 hashtag.
 `;
-    const analysisTweet = await generateTweet(analysisPrompt);
-    await sendTweet(analysisTweet, mainTweetId);
+
+    const rawThread = await generateTweet(threadPrompt);
+    const posts = splitIntoPosts(rawThread);
+
+    if (posts.length === 0) throw new Error("No posts generated");
+
+    let previousTweetId = null;
+
+    for (let i = 0; i < posts.length; i++) {
+      previousTweetId = await sendTweet(posts[i], previousTweetId);
+      if (!previousTweetId) break;
+    }
 
   } catch (err) {
-    console.error("❌ Error generating or sending tweet:", err);
+    console.error("❌ Thread generation failed:", err);
   }
 }
 
