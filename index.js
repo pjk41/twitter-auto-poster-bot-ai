@@ -536,6 +536,38 @@ function getNextStock() {
   return stock;
 }
 
+async function fetchMarketData(symbol) {
+  try {
+    const headers = {
+      "User-Agent": "Mozilla/5.0",
+      "Accept": "application/json",
+      "Referer": "https://www.nseindia.com/"
+    };
+
+    // Bootstrap call (important for NSE)
+    await fetch("https://www.nseindia.com", { headers });
+
+    const res = await fetch(
+      `https://www.nseindia.com/api/quote-equity?symbol=${symbol.trim()}`,
+      { headers }
+    );
+
+    const data = await res.json();
+
+    const priceInfo = data.priceInfo || {};
+    const metadata = data.metadata || {};
+
+    return {
+      cmp: priceInfo.lastPrice,
+      high52: metadata.weekHigh52,
+      low52: metadata.weekLow52
+    };
+  } catch (err) {
+    console.error("❌ Failed to fetch market data:", err);
+    return null;
+  }
+}
+
 // --- Retry wrapper for Gemini calls ---
 async function generateTweet(prompt, retries = 3, delayMs = 40000) {
   try {
@@ -604,10 +636,17 @@ async function sendTweet(tweetText, replyToId = null) {
 }
 
 // --- Main runner ---
-// --- Main runner ---
 async function run() {
   try {
     const stock = getNextStock();
+    const marketData = await fetchMarketData(stock.replace(/[^A-Z]/g, ""));
+    
+    if (!marketData) {
+      console.error("❌ Skipping run due to missing market data");
+      return;
+    }
+    
+    const { cmp, high52, low52 } = marketData;
 
     const threadPrompt = `
 Generate a DAILY STOCK THREAD for X (Twitter).
@@ -641,7 +680,7 @@ Catchy intro about industry, products, or a unique angle.
 
 Post 2 (MANDATORY ORDER):
 Start EXACTLY like this:
-CMP: ₹<value> | 52W High: ₹<value> | 52W Low: ₹<value>
+CMP: ₹${cmp} | 52W High: ₹${high52} | 52W Low: ₹${low52}
 
 Then immediately:
 Green Flags:
@@ -653,8 +692,12 @@ Post 3+ (if needed):
 - Business & revenue model
 - Recent developments
 - High-level numbers (growth, margins, ROCE – no exact figures)
-- Outlook (choose ONE):
-  Strong contender / Watchlist / Near qualifier / Avoid for now
+Outlook:
+Write ONE clear, investor-style sentence such as:
+- "Can be added gradually on dips"
+- "Worth keeping on watchlist at current levels"
+- "Suitable only for aggressive investors"
+- "Better to wait for clearer growth visibility"
 
 Constraints:
 - Do NOT mention debt
