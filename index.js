@@ -699,19 +699,14 @@ Do NOT use emojis except in Post 1.
         .trim()
     );
 
-    // --- Split posts safely (never break Outlook) ---
-    const finalPosts = [];
-
-    cleanedPosts.forEach((post, idx) => {
-      const isLast = idx === cleanedPosts.length - 1;
-
-      if (isLast) {
-        // NEVER split outlook
-        finalPosts.push(post);
-      } else {
-        finalPosts.push(...splitByWords(post, 260));
+    // --- Final posts: 1 Gemini post = 1 tweet ---
+    const finalPosts = cleanedPosts.map(post => {
+      if (post.length > 280) {
+        return post.slice(0, 277).trim() + "...";
       }
+      return post;
     });
+
 
     console.log(`🧵 Posting ${finalPosts.length} tweets`);
 
