@@ -536,34 +536,31 @@ function getNextStock() {
   return stock;
 }
 
-async function fetchMarketData(symbol) {
+async function fetchMarketData(stockName) {
   try {
-    const headers = {
-      "User-Agent": "Mozilla/5.0",
-      "Accept": "application/json",
-      "Referer": "https://www.nseindia.com/"
-    };
+    // Map common Indian stock names to Yahoo symbols
+    const symbol = stockName
+      .replace(/&/g, "")
+      .replace(/\s+/g, "")
+      .toUpperCase();
 
-    // Bootstrap call (important for NSE)
-    await fetch("https://www.nseindia.com", { headers });
+    const yahooSymbol = `${symbol}.NS`;
 
-    const res = await fetch(
-      `https://www.nseindia.com/api/quote-equity?symbol=${symbol.trim()}`,
-      { headers }
-    );
+    const url = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${yahooSymbol}`;
+    const res = await fetch(url);
 
-    const data = await res.json();
+    const json = await res.json();
+    const quote = json?.quoteResponse?.result?.[0];
 
-    const priceInfo = data.priceInfo || {};
-    const metadata = data.metadata || {};
+    if (!quote) throw new Error("No quote data");
 
     return {
-      cmp: priceInfo.lastPrice,
-      high52: metadata.weekHigh52,
-      low52: metadata.weekLow52
+      cmp: Math.round(quote.regularMarketPrice),
+      high52: Math.round(quote.fiftyTwoWeekHigh),
+      low52: Math.round(quote.fiftyTwoWeekLow)
     };
   } catch (err) {
-    console.error("❌ Failed to fetch market data:", err);
+    console.error("❌ Yahoo fetch failed:", err.message);
     return null;
   }
 }
@@ -641,8 +638,8 @@ async function run() {
     const stock = getNextStock();
     const marketData = await fetchMarketData(stock.replace(/[^A-Z]/g, ""));
     
-    if (!marketData) {
-      console.error("❌ Skipping run due to missing market data");
+    if (!marketData || !marketData.cmp) {
+      console.error("❌ Market data unavailable, skipping tweet");
       return;
     }
     
@@ -724,7 +721,17 @@ Constraints:
     }
 
     // Word-level safety split (final guardrail)
-    const posts = parsed.posts.flatMap(p => splitByWords(p, 270));
+    const posts = [];
+    
+    parsed.posts.forEach((p, idx) => {
+      if (idx === parsed.posts.length - 1) {
+        // Last post = NEVER split
+        posts.push(p);
+      } else {
+        posts.push(...splitByWords(p, 270));
+      }
+    });
+
 
     console.log(`🧵 Posting ${posts.length} tweets`);
 
