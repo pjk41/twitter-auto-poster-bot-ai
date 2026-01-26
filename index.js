@@ -536,35 +536,6 @@ function getNextStock() {
   return stock;
 }
 
-async function fetchMarketData(stockName) {
-  try {
-    // Map common Indian stock names to Yahoo symbols
-    const symbol = stockName
-      .replace(/&/g, "")
-      .replace(/\s+/g, "")
-      .toUpperCase();
-
-    const yahooSymbol = `${symbol}.NS`;
-
-    const url = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${yahooSymbol}`;
-    const res = await fetch(url);
-
-    const json = await res.json();
-    const quote = json?.quoteResponse?.result?.[0];
-
-    if (!quote) throw new Error("No quote data");
-
-    return {
-      cmp: Math.round(quote.regularMarketPrice),
-      high52: Math.round(quote.fiftyTwoWeekHigh),
-      low52: Math.round(quote.fiftyTwoWeekLow)
-    };
-  } catch (err) {
-    console.error("❌ Yahoo fetch failed:", err.message);
-    return null;
-  }
-}
-
 // --- Retry wrapper for Gemini calls ---
 async function generateTweet(prompt, retries = 3, delayMs = 40000) {
   try {
@@ -636,24 +607,13 @@ async function sendTweet(tweetText, replyToId = null) {
 async function run() {
   try {
     const stock = getNextStock();
-    const marketData = await fetchMarketData(stock.replace(/[^A-Z]/g, ""));
-    
-    if (!marketData || !marketData.cmp) {
-      console.error("❌ Market data unavailable, skipping tweet");
-      return;
-    }
-    
-    const { cmp, high52, low52 } = marketData;
 
     const threadPrompt = `
 Generate a DAILY STOCK THREAD for X (Twitter).
 
 Stock: ${stock}
 
-Return output STRICTLY in valid JSON.
-No markdown. No explanations. Only JSON.
-
-JSON format:
+Return output STRICTLY in this JSON format:
 {
   "posts": [
     "Post text here",
@@ -663,82 +623,97 @@ JSON format:
 }
 
 Rules:
-- Each post must be UNDER 270 characters.
-- Split content logically by MEANING.
-- Write like a human investor.
-- Max 1 emoji per post.
+- Each post must be UNDER 260 characters.
+- Use SHORT paragraphs.
+- Use clear line breaks.
+- Write like a serious long-term investor.
+- Avoid hype language.
 
-STRUCTURE:
+Content structure (VERY IMPORTANT):
 
-Post 1 (Hook):
+Post 1 (Intro):
 Stock of the Day 🚀
 !! ${stock} !!
-Catchy intro about industry, products, or a unique angle.
 
-Post 2 (MANDATORY ORDER):
-Start EXACTLY like this:
-CMP: ₹${cmp} | 52W High: ₹${high52} | 52W Low: ₹${low52}
+1–2 lines explaining:
+• Industry
+• Core products/services
+• One unique or interesting insight
 
-Then immediately:
+Post 2 (Flags):
+Start exactly like this:
+
 Green Flags:
-• key strengths
-Red Flags:
-• key risks
+• point 1
+• point 2
 
-Post 3+ (if needed):
-- Business & revenue model
-- Recent developments
-- High-level numbers (growth, margins, ROCE – no exact figures)
-Outlook:
-Write ONE clear, investor-style sentence such as:
-- "Can be added gradually on dips"
+Red Flags:
+• point 1
+• point 2
+
+Keep it crisp. No long sentences.
+
+Post 3+ (Business & Outlook):
+• Brief business / revenue model
+• Recent developments or direction
+• High-level numbers (growth, margins, ROCE — NO figures)
+
+End with:
+Outlook: Write ONE clear investor-style sentence such as:
 - "Worth keeping on watchlist at current levels"
-- "Suitable only for aggressive investors"
+- "Can be added gradually on dips for long-term investors"
 - "Better to wait for clearer growth visibility"
 
-Constraints:
-- Do NOT mention debt
-- Do NOT give buy/sell advice
-- No disclaimers
-- Final post must include exactly ONE hashtag
+Last post MUST end with exactly ONE hashtag.
+Do NOT use multiple hashtags.
+Do NOT use emojis except in Post 1.
 `;
 
-    const rawThread = await generateTweet(threadPrompt);
+    const raw = await generateTweet(threadPrompt);
 
     let parsed;
     try {
-      parsed = JSON.parse(rawThread.trim());
-    } catch (err) {
-      console.error("❌ Invalid JSON from Gemini");
-      console.log(rawThread);
+      parsed = JSON.parse(raw);
+    } catch (e) {
+      console.error("❌ Gemini did not return valid JSON");
+      console.log(raw);
       return;
     }
 
-    if (!parsed.posts || !Array.isArray(parsed.posts) || parsed.posts.length === 0) {
-      console.error("❌ Gemini returned empty posts array");
-      console.log(parsed);
+    if (!parsed.posts || !parsed.posts.length) {
+      console.error("❌ No posts generated");
       return;
     }
 
-    // Word-level safety split (final guardrail)
-    const posts = [];
-    
-    parsed.posts.forEach((p, idx) => {
-      if (idx === parsed.posts.length - 1) {
-        // Last post = NEVER split
-        posts.push(p);
+    // --- Normalize whitespace for clean formatting ---
+    const cleanedPosts = parsed.posts.map(p =>
+      p
+        .replace(/\n{3,}/g, "\n\n") // collapse extra newlines
+        .replace(/[ \t]+/g, " ")
+        .trim()
+    );
+
+    // --- Split posts safely (never break Outlook) ---
+    const finalPosts = [];
+
+    cleanedPosts.forEach((post, idx) => {
+      const isLast = idx === cleanedPosts.length - 1;
+
+      if (isLast) {
+        // NEVER split outlook
+        finalPosts.push(post);
       } else {
-        posts.push(...splitByWords(p, 270));
+        finalPosts.push(...splitByWords(post, 260));
       }
     });
 
+    console.log(`🧵 Posting ${finalPosts.length} tweets`);
 
-    console.log(`🧵 Posting ${posts.length} tweets`);
+    let replyToId = null;
 
-    let previousTweetId = null;
-    for (const post of posts) {
-      previousTweetId = await sendTweet(post, previousTweetId);
-      if (!previousTweetId) break;
+    for (const tweet of finalPosts) {
+      replyToId = await sendTweet(tweet, replyToId);
+      if (!replyToId) break;
     }
 
   } catch (err) {
