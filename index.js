@@ -698,24 +698,25 @@ Do NOT use emojis except in Post 1.
         .replace(/[ \t]+/g, " ")
         .trim()
     );
-
-    // --- Final posts: 1 Gemini post = 1 tweet ---
+    
+    // --- FINAL RULE: 1 Gemini post = 1 tweet ---
     const finalPosts = cleanedPosts.map(post => {
       if (post.length > 280) {
+        console.warn("⚠️ Post exceeded limit, truncating");
         return post.slice(0, 277).trim() + "...";
       }
       return post;
     });
-
-
+    
     console.log(`🧵 Posting ${finalPosts.length} tweets`);
-
+    
     let replyToId = null;
-
+    
     for (const tweet of finalPosts) {
       replyToId = await sendTweet(tweet, replyToId);
       if (!replyToId) break;
     }
+
 
   } catch (err) {
     console.error("❌ Thread generation failed:", err);
