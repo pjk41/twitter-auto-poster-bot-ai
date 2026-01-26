@@ -701,12 +701,32 @@ Do NOT use emojis except in Post 1.
     
     // --- FINAL RULE: 1 Gemini post = 1 tweet ---
     const finalPosts = cleanedPosts.map(post => {
-      if (post.length > 280) {
-        console.warn("⚠️ Post exceeded limit, truncating");
-        return post.slice(0, 277).trim() + "...";
+      if (post.length <= 280) return post;
+    
+      console.warn("⚠️ Post exceeded limit, trimming safely");
+    
+      // If Outlook exists, preserve it
+      const outlookMatch = post.match(/Outlook:.*$/s);
+    
+      if (outlookMatch) {
+        const outlook = outlookMatch[0].trim();
+    
+        // Leave room for Outlook + newline
+        const maxBodyLen = 280 - outlook.length - 2;
+    
+        const body = post
+          .replace(outlook, "")
+          .trim()
+          .slice(0, maxBodyLen)
+          .trim();
+    
+        return `${body}\n\n${outlook}`;
       }
-      return post;
+    
+      // Fallback: hard truncate
+      return post.slice(0, 277).trim() + "...";
     });
+
     
     console.log(`🧵 Posting ${finalPosts.length} tweets`);
     
