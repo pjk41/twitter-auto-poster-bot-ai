@@ -1,8 +1,8 @@
 name: Auto Tweet Using AI
 
 on:
-  # schedule:
-  #   - cron: "30 3 * * *"  # Runs once a day at 9:00 AM IST
+   schedule:
+     - cron: "30 3 * * *"  # Runs once a day at 9:00 AM IST
   workflow_dispatch: # manual trigger
 
 jobs:
