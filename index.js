@@ -1694,11 +1694,32 @@ Return output STRICTLY in this JSON format:
   ]
 }
 
-Rules:
-- Only **two posts**; do not create more or fewer.
-- **Post 1** must be ≤250 characters, include at least one trending X hashtag, highlight something very interesting about the stock, and **end with "see more ..."**.
-- **Post 2** may be lengthy; craft an investment-banking‑style summary with overall outlook.
-- Use professional investor language; avoid hype and emojis.
+Very important rules (follow exactly):
+- Produce exactly two posts in the 'posts' array.
+- Post 1 (the teaser):
+  - Maximum 250 characters.
+  - One short 1–2 line insight that highlights something *very interesting* about the company (industry / product / unique catalyst).
+  - Must include at least one relevant X hashtag (e.g. sector or company hashtag).
+  - Must end exactly with: 'see more ...' (three dots; the post string itself should end with that phrase).
+
+- Post 2 (the deep dive):
+  - Investment-banking style summary. Include clear section headers exactly as shown below and use short bullet points where appropriate.
+  - Required sections (use these exact headings):
+    - 'Technicals:'
+    - 'Fundamentals:'
+    - 'Positives:'
+    - 'Negatives:'
+    - 'Outlook:' (a single clear investor-style sentence)
+
+Tone: professional, concise, investor-focused. Avoid hype and emojis.
+
+Example posts content (for guidance):
+{
+  "posts": [
+    "Stock of the Day: !! Example Corp !! Industry: Renewable components. Unique insight: large order backlog drives near-term earnings revisions. #Renewables see more ...",
+    "Technical / Fundamentals:\n- Business: Manufactures X for Y.\n- Revenue model: Product sales + recurring service.\n\nPositives:\n- Long-term contracts\n- Strong balance sheet\n\nNegatives:\n- Supply chain exposure\n- Concentrated customer base\n\nOutlook: Favorable medium-term growth driven by infrastructure spending."
+  ]
+}
 `;
 
     const raw = await generateTweet(threadPrompt);
