@@ -7,12 +7,22 @@ import dotenv from "dotenv";
 dotenv.config();
 
 // --- Twitter client setup ---
-const twitterClient = new TwitterApi({
-  appKey: process.env.APP_KEY,
-  appSecret: process.env.APP_SECRET,
-  accessToken: process.env.ACCESS_TOKEN,
-  accessSecret: process.env.ACCESS_SECRET,
-});
+let twitterClient = null;
+if (
+  process.env.APP_KEY &&
+  process.env.APP_SECRET &&
+  process.env.ACCESS_TOKEN &&
+  process.env.ACCESS_SECRET
+) {
+  twitterClient = new TwitterApi({
+    appKey: process.env.APP_KEY,
+    appSecret: process.env.APP_SECRET,
+    accessToken: process.env.ACCESS_TOKEN,
+    accessSecret: process.env.ACCESS_SECRET,
+  });
+} else {
+  console.warn("⚠️ Twitter credentials missing; operating in dry-run mode.");
+}
 
 // --- Gemini client setup ---
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
@@ -1642,18 +1652,21 @@ async function sendTweet(tweetText, replyToId = null) {
   try {
     if (!tweetText) throw new Error("Empty tweet text");
 
-    // Ensure max length 280 chars
-    // if (tweetText.length > 280) tweetText = tweetText.slice(0, 277) + "...";
-
     console.log("Generated Tweet:", tweetText);
 
     const tweetData = replyToId
       ? { reply: { in_reply_to_tweet_id: replyToId } }
       : {};
 
-    const posted = await twitterClient.v2.tweet(tweetText, tweetData);
-    console.log("✅ Tweet sent successfully!!");
-    return posted.data.id; // return tweet ID for threading
+    // ----- DRY RUN: do NOT actually post -----
+    console.log("✅ [DRY RUN] Tweet not sent to API");
+    // return a fake id so threading logic continues during dry run
+    return `dry_${Math.random().toString(36).substring(2, 8)}`;
+
+    // real posting disabled for now
+    // const posted = await twitterClient.v2.tweet(tweetText, tweetData);
+    // console.log("✅ Tweet sent successfully!!");
+    // return posted.data.id; // return tweet ID for threading
   } catch (error) {
     console.error("❌ Error sending tweet:", error);
     return null;
@@ -1676,52 +1689,16 @@ Stock: ${stock}
 Return output STRICTLY in this JSON format:
 {
   "posts": [
-    "Post text here",
-    "Post text here",
-    "Post text here"
+    "First post text",
+    "Second post text"
   ]
 }
 
 Rules:
-- Each post must be UNDER 260 characters.
-- Use SHORT paragraphs.
-- Use clear line breaks.
-- Write like a serious long-term investor.
-- Avoid hype language.
-
-Content structure (VERY IMPORTANT):
-
-Post 1 (Intro):
-Stock of the Day 🚀
-!! ${stock} !!
-
-1–2 lines explaining:
-• Industry
-• Core products/services
-• One unique or interesting insight
-
-Post 2 (Flags):
-Start exactly like this:
-
-Green Flags:
-• point 1
-• point 2
-
-Red Flags:
-• point 1
-• point 2
-
-Post 3+ (Business & Outlook):
-• Brief business / revenue model
-• Recent developments
-• High-level numbers (NO figures)
-
-End with:
-Outlook: ONE clear investor-style sentence.
-
-Last post MUST end with exactly ONE hashtag.
-Do NOT use multiple hashtags.
-Do NOT use emojis except in Post 1.
+- Only **two posts**; do not create more or fewer.
+- **Post 1** must be ≤250 characters, include at least one trending X hashtag, highlight something very interesting about the stock, and **end with "see more ..."**.
+- **Post 2** may be lengthy; craft an investment-banking‑style summary with overall outlook.
+- Use professional investor language; avoid hype and emojis.
 `;
 
     const raw = await generateTweet(threadPrompt);
@@ -1743,31 +1720,11 @@ Do NOT use emojis except in Post 1.
         ? text
         : text.slice(0, limit).replace(/\s+\S*$/, "").trim();
 
-    const finalPosts = [];
-
-    parsed.posts.forEach((post, idx) => {
-      const trimmed = post.replace(/\n{3,}/g, "\n\n").trim();
-
-      if (idx < 2) {
-        finalPosts.push(safeTrim(trimmed));
-        return;
-      }
-
-      const outlookMatch = trimmed.match(/Outlook:.*$/s);
-
-      if (!outlookMatch) {
-        finalPosts.push(safeTrim(trimmed));
-        return;
-      }
-
-      const business = trimmed.replace(outlookMatch[0], "").trim();
-      const outlookText =
-        outlookMatch[0].replace(/#\S+/g, "").trim() +
-        " #" +
-        stock.replace(/\s+/g, "");
-
-      if (business) finalPosts.push(safeTrim(business));
-      finalPosts.push(safeTrim(outlookText));
+    // Only two posts expected; enforce the limits explicitly
+    const finalPosts = parsed.posts.slice(0, 2).map((p, idx) => {
+      const trimmed = p.replace(/\n{3,}/g, "\n\n").trim();
+      // first post limited to 250, second can be longer (use 1000 as a big cap)
+      return safeTrim(trimmed, idx === 0 ? 250 : 1000);
     });
 
     console.log(`🧵 Posting ${finalPosts.length} tweets`);
