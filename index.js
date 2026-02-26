@@ -1717,7 +1717,7 @@ Example posts content (for guidance):
 {
   "posts": [
     "Stock of the Day: !! Example Corp !! Industry: Renewable components. Unique insight: large order backlog drives near-term earnings revisions. #Renewables see more ...",
-    "Technical / Fundamentals:\n- Business: Manufactures X for Y.\n- Revenue model: Product sales + recurring service.\n\nPositives:\n- Long-term contracts\n- Strong balance sheet\n\nNegatives:\n- Supply chain exposure\n- Concentrated customer base\n\nOutlook: Favorable medium-term growth driven by infrastructure spending."
+    "Technicals:\n- Trades with steady momentum, low volatility.\n\nFundamentals:\n- Business: Manufactures X for Y.\n- Revenue model: Product sales + recurring service.\n\nPositives:\n- Long-term contracts\n- Strong balance sheet\n\nNegatives:\n- Supply chain exposure\n- Concentrated customer base\n\nOutlook: Favorable medium-term growth driven by infrastructure spending."
   ]
 }
 `;
@@ -1741,11 +1741,66 @@ Example posts content (for guidance):
         ? text
         : text.slice(0, limit).replace(/\s+\S*$/, "").trim();
 
-    // Only two posts expected; enforce the limits explicitly
+    // Helpers to enforce required structure when model output is imperfect
+    function makeHashtag(stockName) {
+      const parts = stockName.replace(/[^A-Za-z0-9 ]/g, "").split(/\s+/).filter(Boolean);
+      const candidate = parts.length ? parts[parts.length - 1] : stockName.replace(/[^A-Za-z0-9]/g, "");
+      return `#${candidate.replace(/[^A-Za-z0-9]/g, "")}`;
+    }
+
+    function ensureFirstPostRules(text, stockName) {
+      let t = text.replace(/\s+/g, " ").trim();
+      const hasHashtag = /#\w+/.test(t);
+      const hashtag = makeHashtag(stockName);
+      // Ensure ends with 'see more ...'
+      if (!/see more \.\.\.$/i.test(t)) {
+        t = t.replace(/[.]{0,3}\s*$/, "") + " see more ...";
+      }
+      // Ensure at least one hashtag
+      if (!hasHashtag) t = t + " " + hashtag;
+
+      // Enforce max length 250 preserving suffix
+      if (t.length > 250) {
+        const reserved = " see more ..." + (/#\w+/.test(t) ? (" " + (t.match(/(#\w+)\s*$/) || [""])[1]) : " " + hashtag);
+        const maxBody = 250 - reserved.length;
+        let body = t.slice(0, Math.max(0, maxBody)).replace(/\s+\S*$/, "").trim();
+        t = body + " see more ..." + (reserved.trim().startsWith('#') ? (' ' + reserved.trim().split(/\s+/).pop()) : ' ' + hashtag);
+        t = t.trim();
+      }
+
+      return t;
+    }
+
+    function ensureSecondPostSections(text) {
+      const hasAllHeaders = /Technicals:|Fundamentals:|Positives:|Negatives:|Outlook:/i.test(text);
+      if (hasAllHeaders) return text.replace(/\n{3,}/g, "\n\n").trim();
+
+      // Heuristic splitting into sections if headers missing
+      const sentences = text.replace(/\n+/g, " ").split(/(?<=[.!?])\s+/).map(s => s.trim()).filter(Boolean);
+      const technical = sentences.slice(0, 1).join(' ');
+      const fundamental = sentences.slice(1, 2).join(' ');
+      const positives = sentences.slice(2, 4).map(s => `- ${s}`).join('\n') || '- N/A';
+      const negatives = sentences.slice(4, 6).map(s => `- ${s}`).join('\n') || '- N/A';
+      const outlook = sentences.length ? sentences[sentences.length - 1].replace(/[\n\r]/g, ' ').trim() : 'Neutral.';
+
+      return `Technicals:\n- ${technical}\n\nFundamentals:\n- ${fundamental}\n\nPositives:\n${positives}\n\nNegatives:\n${negatives}\n\nOutlook: ${outlook}`;
+    }
+
+    // Only two posts expected; enforce limits and structural rules explicitly
     const finalPosts = parsed.posts.slice(0, 2).map((p, idx) => {
       const trimmed = p.replace(/\n{3,}/g, "\n\n").trim();
-      // first post limited to 250, second can be longer (use 1000 as a big cap)
-      return safeTrim(trimmed, idx === 0 ? 250 : 1000);
+      if (idx === 0) {
+        const enforced = ensureFirstPostRules(trimmed, stock);
+        return safeTrim(enforced, 250);
+      }
+      // second post: ensure sections then optionally cap with a very large limit
+      let enforced2 = ensureSecondPostSections(trimmed);
+      // if Outlook header still missing after sectioning, append generic line
+      if (!/Outlook:/i.test(enforced2)) {
+        enforced2 += "\n\nOutlook: See above for key drivers and risks.";
+      }
+      // do not truncate aggressively; allow up to 2000 characters
+      return safeTrim(enforced2, 2000);
     });
 
     console.log(`🧵 Posting ${finalPosts.length} tweets`);
@@ -1754,7 +1809,7 @@ Example posts content (for guidance):
     for (const tweet of finalPosts) {
       replyToId = await sendTweet(tweet, replyToId);
       if (!replyToId) break;
-    
+
       // ⏳ critical: avoid X rate limits
       await new Promise(resolve => setTimeout(resolve, 30_000)); // 30 seconds
     }
