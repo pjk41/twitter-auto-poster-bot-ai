@@ -1747,38 +1747,49 @@ Example posts content (for guidance):
 
     // Helpers to enforce required structure when model output is imperfect
     function makeHashtag(stockName) {
+      // Use first 2-3 words or meaningful part (avoid "Limited", "Company", etc.)
+      const stopwords = ['limited', 'company', 'corp', 'ltd', 'inc'];
       const parts = stockName.replace(/[^A-Za-z0-9 ]/g, "").split(/\s+/).filter(Boolean);
-      const candidate = parts.length ? parts[parts.length - 1] : stockName.replace(/[^A-Za-z0-9]/g, "");
+      let candidate = parts.slice(0, 2).join('');
+      
+      // If last word is a stopword and we have multiple words, drop it
+      if (parts.length > 1 && stopwords.includes(parts[parts.length - 1].toLowerCase())) {
+        candidate = parts.slice(0, -1).slice(-2).join('');
+      }
+      
+      if (!candidate) candidate = stockName.replace(/[^A-Za-z0-9]/g, "");
       return `#${candidate.replace(/[^A-Za-z0-9]/g, "")}`;
     }
 
     function ensureFirstPostRules(text, stockName) {
-      // prefix structure
-      const prefix = `Stock of the Day 🚀\n\n** ${stockName.trim()} **\n\n`;
+      // Clean but preserve structure
       let t = text.replace(/\s+/g, " ").trim();
-      // if prefix missing, add it
-      if (!t.startsWith("Stock of the Day")) {
-        t = prefix + t;
-      }
-      const hasHashtag = /#\w+/.test(t);
+      
+      // Build final structure: header + content + hashtag + see more ...
+      const header = `Stock of the Day 🚀\n\n** ${stockName.trim()} **\n\n`;
       const hashtag = makeHashtag(stockName);
-      // Ensure ends with 'see more ...'
-      if (!/see more \.\.\.$/i.test(t)) {
-        t = t.replace(/[.]{0,3}\s*$/, "") + " see more ...";
+      const suffix = ` ${hashtag} see more ...`;
+      
+      // Remove any existing prefix/suffix patterns to avoid duplication
+      t = t.replace(/^Stock of the Day.*?\*\*\s*/i, '').trim();
+      t = t.replace(/\s*see more\s*\.{0,3}\s*$/i, '').trim();
+      t = t.replace(/\s*#\w+\s*$/i, '').trim();
+      
+      // Build final: header + content + suffix
+      let result = header + t + suffix;
+      
+      // Enforce max length 260 by trimming body if needed
+      if (result.length > 260) {
+        // Reserve space for header and suffix
+        const reserved = header.length + suffix.length;
+        const maxBody = 260 - reserved;
+        if (maxBody > 0) {
+          let trimmed = t.slice(0, maxBody).replace(/\s+\S*$/, "").trim();
+          result = header + trimmed + suffix;
+        }
       }
-      // Ensure at least one hashtag
-      if (!hasHashtag) t = t + " " + hashtag;
 
-      // Enforce max length 250 preserving suffix
-      if (t.length > 250) {
-        const reserved = " see more ..." + (/#\w+/.test(t) ? (" " + (t.match(/(#\w+)\s*$/) || [""])[1]) : " " + hashtag);
-        const maxBody = 250 - reserved.length;
-        let body = t.slice(0, Math.max(0, maxBody)).replace(/\s+\S*$/, "").trim();
-        t = body + " see more ..." + (reserved.trim().startsWith('#') ? (' ' + reserved.trim().split(/\s+/).pop()) : ' ' + hashtag);
-        t = t.trim();
-      }
-
-      return t;
+      return result;
     }
 
     function ensureSecondPostSections(text) {
