@@ -1880,7 +1880,7 @@ Example posts content (for guidance):
       if (!replyToId) break;
 
       // ⏳ critical: avoid X rate limits
-      await new Promise(resolve => setTimeout(resolve, 30_000)); // 30 seconds
+      await new Promise(resolve => setTimeout(resolve, 90_000)); // 90 seconds
     }
 
   } catch (err) {
