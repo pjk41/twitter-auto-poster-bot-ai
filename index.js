@@ -1698,7 +1698,7 @@ Very important rules (follow exactly):
 - Produce exactly two posts in the 'posts' array.
 - Post 1 (the teaser):
   - Start with the text \`Stock of the Day 🚀\` on its own line, followed by a blank line, then the stock name wrapped in double asterisks (\`** STOCK NAME **\`), another blank line, then the interesting content.
-    - Maximum 260 characters total (including hashtags and the \`see more ...\` suffix).
+    - Maximum 270 characters total (including hashtags and the \`see more ...\` suffix).
 
   - One short 1–2 line insight that highlights something *very interesting* about the company (industry / product / unique catalyst).
   - Must include at least one relevant X hashtag (e.g. sector or company hashtag) after the insightful sentence.
@@ -1748,10 +1748,17 @@ Example posts content (for guidance):
       return;
     }
 
-    const safeTrim = (text, limit = 260) =>
-      text.length <= limit
-        ? text
-        : text.slice(0, limit).replace(/\s+\S*$/, "").trim();
+    const safeTrim = (text, limit = 270) => {
+      if (text.length <= limit) return text;
+      // slice then trim last word; afterwards ensure suffix remains
+      let trimmed = text.slice(0, limit).replace(/\s+\S*$/, "").trim();
+      // if suffix got chopped off, reappend the full version
+      if (/see more\s*\.\.\.?$/i.test(trimmed) && !/see more \.+$/i.test(trimmed)) {
+        // ensure exactly three dots
+        trimmed = trimmed.replace(/see more\s*\.\.*$/i, "see more ...");
+      }
+      return trimmed;
+    };
 
     // Helpers to enforce required structure when model output is imperfect
     function makeHashtag(stockName) {
@@ -1772,7 +1779,8 @@ Example posts content (for guidance):
     function ensureFirstPostRules(text, stockName) {
       // Remove any existing headers/prefixes if present
       let t = text
-        .replace(/^Stock of the Day.*?\*\*\s*/i, '')  // Remove existing header/stock name
+        // strip any repeated header structures anywhere in the string
+        .replace(/Stock of the Day\s*🚀[\s\S]*?\*\*[^*]+\*\*/gi, '')
         .replace(/\s+/g, " ")  // Normalize whitespace
         .trim();
       
@@ -1789,11 +1797,11 @@ Example posts content (for guidance):
       // Build final: header + content + suffix
       let result = header + t + suffix;
       
-      // Enforce max length 260 by trimming body if needed
-      if (result.length > 260) {
+      // Enforce max length 270 by trimming body if needed
+      if (result.length > 270) {
         // Reserve space for header and suffix
         const reserved = header.length + suffix.length;
-        const maxBody = 260 - reserved;
+        const maxBody = 270 - reserved;
         if (maxBody > 0) {
           let trimmed = t.slice(0, maxBody).replace(/\s+\S*$/, "").trim();
           result = header + trimmed + suffix;
@@ -1828,7 +1836,7 @@ Example posts content (for guidance):
       const trimmed = p.replace(/\n{3,}/g, "\n\n").trim();
       if (idx === 0) {
         const enforced = ensureFirstPostRules(trimmed, stock);
-        return safeTrim(enforced, 250);
+        return safeTrim(enforced, 270);
       }
       // second post: ensure sections then optionally cap with a very large limit
       let enforced2 = ensureSecondPostSections(trimmed);
