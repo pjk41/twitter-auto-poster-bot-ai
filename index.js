@@ -1658,15 +1658,19 @@ async function sendTweet(tweetText, replyToId = null) {
       ? { reply: { in_reply_to_tweet_id: replyToId } }
       : {};
 
-    // ----- DRY RUN: do NOT actually post -----
-    console.log("✅ [DRY RUN] Tweet not sent to API");
-    // return a fake id so threading logic continues during dry run
-    return `dry_${Math.random().toString(36).substring(2, 8)}`;
+    const dryRunEnv = process.env.DRY_RUN?.toLowerCase() !== "false";
+    const canPost = twitterClient && !dryRunEnv;
 
-    // real posting disabled for now
-    // const posted = await twitterClient.v2.tweet(tweetText, tweetData);
-    // console.log("✅ Tweet sent successfully!!");
-    // return posted.data.id; // return tweet ID for threading
+    if (!canPost) {
+      console.log("✅ [DRY RUN] Tweet not sent to API");
+      // return a fake id so threading logic continues during dry run
+      return `dry_${Math.random().toString(36).substring(2, 8)}`;
+    }
+
+    // actual posting path
+    const posted = await twitterClient.v2.tweet(tweetText, tweetData);
+    console.log("✅ Tweet sent successfully!!");
+    return posted.data.id; // return tweet ID for threading
   } catch (error) {
     console.error("❌ Error sending tweet:", error);
     return null;
@@ -1676,6 +1680,23 @@ async function sendTweet(tweetText, replyToId = null) {
 // --- Main runner ---
 async function run() {
   try {
+    // special mode for demonstration without calling Gemini
+    if (process.env.SAMPLE) {
+      console.log("🔧 SAMPLE mode enabled – using hardcoded tweets");
+      const samplePosts = [
+        "Stock of the Day 🚀\n\n** Sample Co **\n\nThis is test content describing the company. #Sample\n\nsee more ...",
+        "Lets dive into detailed analysis -\n\n**Technicals:**\n- sample technical point.\n\n**Fundamentals:**\n- sample fundamental note.\n\n**Positives:**\n- none\n\n**Negatives:**\n- none\n\n**Outlook:** Neutral sample text."
+      ];
+
+      let replyToId = null;
+      for (const tweet of samplePosts) {
+        replyToId = await sendTweet(tweet, replyToId);
+        if (!replyToId) break;
+        await new Promise((r) => setTimeout(r, 500));
+      }
+      return;
+    }
+
     const stock = getNextStock()
       .replace(/&amp;/g, "&")
       .replace(/\s+/g, " ")
