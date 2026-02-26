@@ -1770,18 +1770,21 @@ Example posts content (for guidance):
     }
 
     function ensureFirstPostRules(text, stockName) {
-      // Clean but preserve structure
-      let t = text.replace(/\s+/g, " ").trim();
+      // Remove any existing headers/prefixes if present
+      let t = text
+        .replace(/^Stock of the Day.*?\*\*\s*/i, '')  // Remove existing header/stock name
+        .replace(/\s+/g, " ")  // Normalize whitespace
+        .trim();
       
       // Build final structure: header + content + hashtag + see more ...
       const header = `Stock of the Day 🚀\n\n** ${stockName.trim()} **\n\n`;
       const hashtag = makeHashtag(stockName);
-      const suffix = ` ${hashtag} see more ...`;
+      // hashtags and suffix on their own lines with extra spacing
+      const suffix = `\n\n${hashtag}\n\nsee more ...`;
       
-      // Remove any existing prefix/suffix patterns to avoid duplication
-      t = t.replace(/^Stock of the Day.*?\*\*\s*/i, '').trim();
+      // Remove any trailing see more or hashtags from content
       t = t.replace(/\s*see more\s*\.{0,3}\s*$/i, '').trim();
-      t = t.replace(/\s*#\w+\s*$/i, '').trim();
+      t = t.replace(/\s*#\w+(\s+#\w+)*\s*$/i, '').trim();
       
       // Build final: header + content + suffix
       let result = header + t + suffix;
