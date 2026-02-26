@@ -1733,7 +1733,15 @@ Example posts content (for guidance):
       .replace(/```/g, "")
       .trim();
 
-    const parsed = JSON.parse(cleaned);
+    // Escape unescaped control characters within quoted strings before parsing
+    const fixed = cleaned.replace(/"([^"\\]|\\.)*"/g, (match) => {
+      return match
+        .replace(/\n/g, '\\n')
+        .replace(/\r/g, '\\r')
+        .replace(/\t/g, '\\t');
+    });
+
+    const parsed = JSON.parse(fixed);
 
     if (!parsed.posts?.length) {
       console.error("❌ No posts generated");
