@@ -1697,29 +1697,33 @@ Return output STRICTLY in this JSON format:
 Very important rules (follow exactly):
 - Produce exactly two posts in the 'posts' array.
 - Post 1 (the teaser):
-  - Maximum 250 characters.
+  - Start with the text \`Stock of the Day 🚀\` on its own line, followed by a blank line, then the stock name wrapped in double asterisks (\`** STOCK NAME **\`), another blank line, then the interesting content.
+    - Maximum 260 characters total (including hashtags and the \`see more ...\` suffix).
+
   - One short 1–2 line insight that highlights something *very interesting* about the company (industry / product / unique catalyst).
-  - Must include at least one relevant X hashtag (e.g. sector or company hashtag).
+  - Must include at least one relevant X hashtag (e.g. sector or company hashtag) after the insightful sentence.
   - Must end exactly with: 'see more ...' (three dots; the post string itself should end with that phrase).
 
 - Post 2 (the deep dive):
-  - Investment-banking style summary. Include clear section headers exactly as shown below and use short bullet points where appropriate.
-  - Required sections (use these exact headings):
-    - 'Technicals:'
-    - 'Fundamentals:'
-    - 'Positives:'
-    - 'Negatives:'
-    - 'Outlook:' (a single clear investor-style sentence)
+  - Start the tweet with the line: \`Lets dive into detailed analysis -\` followed by two line breaks.
+  - Investment-banking style summary. Include clear section headers exactly as shown below, with each header **bolded** (wrapped in \`**\`), and use short bullet points where appropriate.
+  - Required sections (use these exact headings in bold):
+    - \`**Technicals:**\`
+    - \`**Fundamentals:**\`
+    - \`**Positives:**\`
+    - \`**Negatives:**\`
+    - \`**Outlook:**\` (a single clear investor-style sentence)
 
 Tone: professional, concise, investor-focused. Avoid hype and emojis.
 
 Example posts content (for guidance):
 {
   "posts": [
-    "Stock of the Day: !! Example Corp !! Industry: Renewable components. Unique insight: large order backlog drives near-term earnings revisions. #Renewables see more ...",
-    "Technicals:\n- Trades with steady momentum, low volatility.\n\nFundamentals:\n- Business: Manufactures X for Y.\n- Revenue model: Product sales + recurring service.\n\nPositives:\n- Long-term contracts\n- Strong balance sheet\n\nNegatives:\n- Supply chain exposure\n- Concentrated customer base\n\nOutlook: Favorable medium-term growth driven by infrastructure spending."
+    "Stock of the Day 🚀\n\n** Example Corp **\n\nIndustry: Renewable components. Unique insight: large order backlog drives near-term earnings revisions. #Renewables see more ...",
+    "Lets dive into detailed analysis -\n\n**Technicals:**\n- Trades with steady momentum, low volatility.\n\n**Fundamentals:**\n- Business: Manufactures X for Y.\n- Revenue model: Product sales + recurring service.\n\n**Positives:**\n- Long-term contracts\n- Strong balance sheet\n\n**Negatives:**\n- Supply chain exposure\n- Concentrated customer base\n\n**Outlook:** Favorable medium-term growth driven by infrastructure spending."
   ]
 }
+
 `;
 
     const raw = await generateTweet(threadPrompt);
@@ -1749,7 +1753,13 @@ Example posts content (for guidance):
     }
 
     function ensureFirstPostRules(text, stockName) {
+      // prefix structure
+      const prefix = `Stock of the Day 🚀\n\n** ${stockName.trim()} **\n\n`;
       let t = text.replace(/\s+/g, " ").trim();
+      // if prefix missing, add it
+      if (!t.startsWith("Stock of the Day")) {
+        t = prefix + t;
+      }
       const hasHashtag = /#\w+/.test(t);
       const hashtag = makeHashtag(stockName);
       // Ensure ends with 'see more ...'
@@ -1772,18 +1782,23 @@ Example posts content (for guidance):
     }
 
     function ensureSecondPostSections(text) {
-      const hasAllHeaders = /Technicals:|Fundamentals:|Positives:|Negatives:|Outlook:/i.test(text);
-      if (hasAllHeaders) return text.replace(/\n{3,}/g, "\n\n").trim();
+      // add prefix if missing
+      let t = text;
+      if (!/^Lets dive into detailed analysis/i.test(t)) {
+        t = "Lets dive into detailed analysis -\n\n" + t;
+      }
+      const hasAllHeaders = /\*\*Technicals:\*\*|\*\*Fundamentals:\*\*|\*\*Positives:\*\*|\*\*Negatives:\*\*|\*\*Outlook:\*\*/i.test(t);
+      if (hasAllHeaders) return t.replace(/\n{3,}/g, "\n\n").trim();
 
       // Heuristic splitting into sections if headers missing
-      const sentences = text.replace(/\n+/g, " ").split(/(?<=[.!?])\s+/).map(s => s.trim()).filter(Boolean);
+      const sentences = t.replace(/\n+/g, " ").split(/(?<=[.!?])\s+/).map(s => s.trim()).filter(Boolean);
       const technical = sentences.slice(0, 1).join(' ');
       const fundamental = sentences.slice(1, 2).join(' ');
       const positives = sentences.slice(2, 4).map(s => `- ${s}`).join('\n') || '- N/A';
       const negatives = sentences.slice(4, 6).map(s => `- ${s}`).join('\n') || '- N/A';
       const outlook = sentences.length ? sentences[sentences.length - 1].replace(/[\n\r]/g, ' ').trim() : 'Neutral.';
 
-      return `Technicals:\n- ${technical}\n\nFundamentals:\n- ${fundamental}\n\nPositives:\n${positives}\n\nNegatives:\n${negatives}\n\nOutlook: ${outlook}`;
+      return `Lets dive into detailed analysis -\n\n**Technicals:**\n- ${technical}\n\n**Fundamentals:**\n- ${fundamental}\n\n**Positives:**\n${positives}\n\n**Negatives:**\n${negatives}\n\n**Outlook:** ${outlook}`;
     }
 
     // Only two posts expected; enforce limits and structural rules explicitly
