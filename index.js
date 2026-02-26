@@ -7,22 +7,12 @@ import dotenv from "dotenv";
 dotenv.config();
 
 // --- Twitter client setup ---
-let twitterClient = null;
-if (
-  process.env.APP_KEY &&
-  process.env.APP_SECRET &&
-  process.env.ACCESS_TOKEN &&
-  process.env.ACCESS_SECRET
-) {
-  twitterClient = new TwitterApi({
-    appKey: process.env.APP_KEY,
-    appSecret: process.env.APP_SECRET,
-    accessToken: process.env.ACCESS_TOKEN,
-    accessSecret: process.env.ACCESS_SECRET,
-  });
-} else {
-  console.warn("⚠️ Twitter credentials missing; operating in dry-run mode.");
-}
+const twitterClient = new TwitterApi({
+  appKey: process.env.APP_KEY,
+  appSecret: process.env.APP_SECRET,
+  accessToken: process.env.ACCESS_TOKEN,
+  accessSecret: process.env.ACCESS_SECRET,
+});
 
 // --- Gemini client setup ---
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
