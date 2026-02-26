@@ -1640,29 +1640,42 @@ function splitByWords(text, maxLen = 270) {
 // --- Tweet sending function with max-length enforcement ---
 async function sendTweet(tweetText, replyToId = null) {
   try {
-    if (!tweetText) throw new Error("Empty tweet text");
+    if (!tweetText || !tweetText.trim()) {
+      throw new Error("Empty tweet text");
+    }
 
     console.log("Generated Tweet:", tweetText);
 
-    const tweetData = replyToId
-      ? { reply: { in_reply_to_tweet_id: replyToId } }
-      : {};
+    // Explicit dry run ONLY if DRY_RUN === "true"
+    const isDryRun = process.env.DRY_RUN?.toLowerCase() === "true";
 
-    const dryRunEnv = process.env.DRY_RUN?.toLowerCase() !== "false";
-    const canPost = twitterClient && !dryRunEnv;
+    if (!twitterClient) {
+      throw new Error("Twitter client not initialized");
+    }
 
-    if (!canPost) {
-      console.log("✅ [DRY RUN] Tweet not sent to API");
-      // return a fake id so threading logic continues during dry run
+    if (isDryRun) {
+      console.log("🟡 [DRY RUN MODE] Tweet NOT sent to Twitter API");
       return `dry_${Math.random().toString(36).substring(2, 8)}`;
     }
 
-    // actual posting path
-    const posted = await twitterClient.v2.tweet(tweetText, tweetData);
-    console.log("✅ Tweet sent successfully!!");
-    return posted.data.id; // return tweet ID for threading
+    const tweetPayload = {
+      text: tweetText,
+    };
+
+    if (replyToId) {
+      tweetPayload.reply = {
+        in_reply_to_tweet_id: replyToId,
+      };
+    }
+
+    const posted = await twitterClient.v2.tweet(tweetPayload);
+
+    console.log("🟢 Tweet sent successfully!");
+    console.log("Tweet ID:", posted.data.id);
+
+    return posted.data.id;
   } catch (error) {
-    console.error("❌ Error sending tweet:", error);
+    console.error("❌ Error sending tweet:", error?.response?.data || error);
     return null;
   }
 }
