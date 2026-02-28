@@ -1845,32 +1845,33 @@ Return only valid JSON.
     }
 
     function ensureFirstPostRules(text, stockName) {
-      let t = text.trim();
+      let t = text.replace(/\r\n/g, "\n").trim();
     
-      // Normalize line endings
-      t = t.replace(/\r\n/g, "\n");
+      // Remove existing "... Show more"
+      t = t.replace(/\.\.\.\s*Show more/i, "").trim();
+    
+      // Extract hashtag line (first line starting with #)
+      const hashtagMatch = t.match(/#[^\n]+/);
+      const hashtag = hashtagMatch ? hashtagMatch[0].trim() : makeHashtag(stockName);
+    
+      // Remove hashtag from main text
+      if (hashtagMatch) {
+        t = t.replace(hashtagMatch[0], "").trim();
+      }
     
       const lines = t.split("\n").map(l => l.trim()).filter(Boolean);
     
-      if (lines.length < 4) return t;
+      const insight = lines.slice(2).join(" ");
     
-      const title = lines[0];         // Stock of the Day 🚀
-      const name = lines[1];          // Stock name
-      const insight = lines[2];       // Insight line
-      const hashtags = lines[3].startsWith("#") ? lines[3] : makeHashtag(stockName);
+      return `Stock of the Day 🚀
     
-      const final =
-    `${title}
-    
-    ${name}
+    ${stockName}
     
     ${insight}
     
-    ${hashtags}
+    ${hashtag}
     
     ... Show more`;
-    
-      return final;
     }
 
     // Only two posts expected; enforce limits and structural rules explicitly
