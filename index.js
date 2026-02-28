@@ -1886,41 +1886,17 @@ Return only valid JSON.
       return result;
     }
 
-    function ensureSecondPostSections(text) {
-      // add prefix if missing
-      let t = text;
-      if (!/^Lets dive into detailed analysis/i.test(t)) {
-        t = "Lets dive into detailed analysis -\n\n" + t;
-      }
-      const hasAllHeaders = /\*\*Technicals:\*\*|\*\*Fundamentals:\*\*|\*\*Positives:\*\*|\*\*Negatives:\*\*|\*\*Outlook:\*\*/i.test(t);
-      if (hasAllHeaders) return t.replace(/\n{3,}/g, "\n\n").trim();
-
-      // Heuristic splitting into sections if headers missing
-      const sentences = t.replace(/\n+/g, " ").split(/(?<=[.!?])\s+/).map(s => s.trim()).filter(Boolean);
-      const technical = sentences.slice(0, 1).join(' ');
-      const fundamental = sentences.slice(1, 2).join(' ');
-      const positives = sentences.slice(2, 4).map(s => `- ${s}`).join('\n') || '- N/A';
-      const negatives = sentences.slice(4, 6).map(s => `- ${s}`).join('\n') || '- N/A';
-      const outlook = sentences.length ? sentences[sentences.length - 1].replace(/[\n\r]/g, ' ').trim() : 'Neutral.';
-
-      return `Lets dive into detailed analysis -\n\n**Technicals:**\n- ${technical}\n\n**Fundamentals:**\n- ${fundamental}\n\n**Positives:**\n${positives}\n\n**Negatives:**\n${negatives}\n\n**Outlook:** ${outlook}`;
-    }
 
     // Only two posts expected; enforce limits and structural rules explicitly
     const finalPosts = parsed.posts.slice(0, 2).map((p, idx) => {
       const trimmed = p.replace(/\n{3,}/g, "\n\n").trim();
+    
       if (idx === 0) {
         const enforced = ensureFirstPostRules(trimmed, stock);
         return safeTrim(enforced, 280);
       }
-      // second post: ensure sections then optionally cap with a very large limit
-      let enforced2 = ensureSecondPostSections(trimmed);
-      // if Outlook header still missing after sectioning, append generic line
-      if (!/Outlook:/i.test(enforced2)) {
-        enforced2 += "\n\nOutlook: See above for key drivers and risks.";
-      }
-      // do not truncate aggressively; allow up to 2000 characters
-      return safeTrim(enforced2, 2000);
+    
+      return trimmed; // DO NOT MODIFY second post
     });
 
     console.log(`🧵 Posting ${finalPosts.length} tweets`);
