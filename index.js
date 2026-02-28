@@ -1835,8 +1835,6 @@ Return only valid JSON.
       return;
     }
     
-    let replyToId = null;
-    
     for (const tweet of parsed.posts) {
       if (!tweet || !tweet.trim()) continue;
     
