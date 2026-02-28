@@ -1593,30 +1593,38 @@ function getNextStock() {
   return stock;
 }
 
-// --- Retry wrapper for Gemini calls ---
+// --- Retry wrapper for Gemini calls (FIXED VERSION) ---
 async function generateTweet(prompt, retries = 3, delayMs = 40000) {
   try {
     const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
-    const result = await model.generateContent(prompt);
-    return result.response.text();
+
+    const result = await model.generateContent({
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      generationConfig: {
+        temperature: 0.5,
+      },
+    });
+
+    let text = result.response.text();
+
+    // Safety: remove accidental markdown wrapping
+    text = text
+      .replace(/```json/g, "")
+      .replace(/```/g, "")
+      .trim();
+
+    return text;
   } catch (err) {
-    if ((err.message.includes("429") || err.message.includes("quota")) && retries > 0) {
+    if (
+      (err.message.includes("429") || err.message.includes("quota")) &&
+      retries > 0
+    ) {
       console.log(`Rate limited. Retrying in ${delayMs / 1000}s...`);
       await new Promise((r) => setTimeout(r, delayMs));
       return generateTweet(prompt, retries - 1, delayMs);
     }
     throw err;
   }
-}
-
-// --- Helper: split Gemini response into tweet-sized posts ---
-function splitIntoPosts(text) {
-  if (!text) return [];
-
-  return text
-    .split(/\n(?=Post\s*\d+:)/i)
-    .map(p => p.replace(/^Post\s*\d+:\s*/i, "").trim())
-    .filter(Boolean);
 }
 
 function splitByWords(text, maxLen = 280) {
@@ -1804,25 +1812,44 @@ Return only valid JSON.
 `;
 
     const raw = await generateTweet(threadPrompt);
-
+    
+    // Remove accidental markdown wrapping
     const cleaned = raw
-      .replace(/```json/i, "")
+      .replace(/```json/gi, "")
       .replace(/```/g, "")
       .trim();
-
-    // Escape unescaped control characters within quoted strings before parsing
-    const fixed = cleaned.replace(/"([^"\\]|\\.)*"/g, (match) => {
-      return match
-        .replace(/\n/g, '\\n')
-        .replace(/\r/g, '\\r')
-        .replace(/\t/g, '\\t');
-    });
-
-    const parsed = JSON.parse(fixed);
-
-    if (!parsed.posts?.length) {
-      console.error("❌ No posts generated");
+    
+    let parsed;
+    
+    try {
+      parsed = JSON.parse(cleaned);
+    } catch (err) {
+      console.error("❌ Gemini returned invalid JSON");
+      console.log("RAW:", raw);
       return;
+    }
+    
+    if (!parsed.posts || !Array.isArray(parsed.posts) || parsed.posts.length !== 2) {
+      console.error("❌ Invalid posts structure");
+      console.log(parsed);
+      return;
+    }
+    
+    let replyToId = null;
+    
+    for (const tweet of parsed.posts) {
+      if (!tweet || !tweet.trim()) continue;
+    
+      if (tweet.length > 280) {
+        console.error("❌ Tweet exceeds 280 characters");
+        console.log(tweet);
+        return;
+      }
+    
+      replyToId = await sendTweet(tweet.trim(), replyToId);
+      if (!replyToId) break;
+    
+      await new Promise((r) => setTimeout(r, 800));
     }
 
     const safeTrim = (text, limit = 280) => {
