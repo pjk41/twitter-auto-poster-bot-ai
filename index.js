@@ -1687,7 +1687,7 @@ async function run() {
     if (process.env.SAMPLE) {
       console.log("🔧 SAMPLE mode enabled – using hardcoded tweets");
       const samplePosts = [
-        "Stock of the Day 🚀\n\n** Sample Co **\n\nThis is test content describing the company. #Sample\n\nsee more ...",
+        "Stock of the Day 🚀\n\n** Sample Co **\n\nThis is test content describing the company. #Sample\n\n... Show more",
         "Lets dive into detailed analysis -\n\n**Technicals:**\n- sample technical point.\n\n**Fundamentals:**\n- sample fundamental note.\n\n**Positives:**\n- none\n\n**Negatives:**\n- none\n\n**Outlook:** Neutral sample text."
       ];
 
@@ -1719,35 +1719,90 @@ Return output STRICTLY in this JSON format:
 }
 
 Very important rules (follow exactly):
-- Produce exactly two posts in the 'posts' array.
-- Post 1 (the teaser):
-  - Start with the text \`Stock of the Day 🚀\` on its own line, followed by a blank line, then the stock name wrapped in double asterisks (\`** STOCK NAME **\`), another blank line, then the interesting content.
-    - Maximum 270 characters total (including hashtags and the \`see more ...\` suffix).
 
-  - One short 1–2 line insight that highlights something *very interesting* about the company (industry / product / unique catalyst).
-  - Must include at least one relevant X hashtag (e.g. sector or company hashtag) after the insightful sentence.
-  - Must end exactly with: 'see more ...' (three dots; the post string itself should end with that phrase).
+- Produce exactly two posts in the "posts" array.
+- Do NOT include markdown formatting like ** or * anywhere.
+- Do NOT include backticks or code blocks.
+- Output plain text only inside the JSON.
 
-- Post 2 (the deep dive):
-  - Start the tweet with the line: \`Lets dive into detailed analysis -\` followed by two line breaks.
-  - Investment-banking style summary. Include clear section headers exactly as shown below, with each header **bolded** (wrapped in \`**\`), and use short bullet points where appropriate.
-  - Required sections (use these exact headings in bold):
-    - \`**Technicals:**\`
-    - \`**Fundamentals:**\`
-    - \`**Positives:**\`
-    - \`**Negatives:**\`
-    - \`**Outlook:**\` (a single clear investor-style sentence)
+----------------------------------------
+POST 1 (Teaser)
+----------------------------------------
 
-Tone: professional, concise, investor-focused. Avoid hype and emojis.
+Structure exactly like this:
 
-Example posts content (for guidance):
+Stock of the Day 🚀
+
+STOCK NAME (in normal text, no asterisks)
+
+1–2 concise lines explaining one very interesting insight about the company (industry leadership / unique product / catalyst / structural growth driver).
+
+Include at least ONE relevant hashtag at the end (e.g. #FMCG #Power #Banking #Infra etc).
+
+Maximum 270 characters total.
+
+The final line must end exactly with:
+... Show more
+
+----------------------------------------
+POST 2 (Deep Dive)
+----------------------------------------
+
+Start exactly with:
+
+Lets dive into detailed analysis -
+
+Then two line breaks.
+
+Use the exact section headers below (no bold, no markdown):
+
+📈 Technical Structure:
+🏦 Fundamentals:
+✔️ Positives:
+⚠️ Risks:
+🔎 Outlook:
+
+Under each header:
+- Use short bullet points starting with "- "
+- Keep language professional and investor-focused
+- Avoid hype and emojis inside content
+- Outlook must be ONE clear investor-style sentence
+
+Tone:
+Professional, concise, research-style. No hype. No exaggerated claims.
+
+Example structure:
+
 {
   "posts": [
-    "Stock of the Day 🚀\n\n** Example Corp **\n\nIndustry: Renewable components. Unique insight: large order backlog drives near-term earnings revisions. #Renewables see more ...",
-    "Lets dive into detailed analysis -\n\n**Technicals:**\n- Trades with steady momentum, low volatility.\n\n**Fundamentals:**\n- Business: Manufactures X for Y.\n- Revenue model: Product sales + recurring service.\n\n**Positives:**\n- Long-term contracts\n- Strong balance sheet\n\n**Negatives:**\n- Supply chain exposure\n- Concentrated customer base\n\n**Outlook:** Favorable medium-term growth driven by infrastructure spending."
+    "Stock of the Day 🚀
+
+Example Corp
+
+Leading player in specialty chemicals with strong export tailwinds driving margin expansion. #Chemicals ... Show more",
+
+    "Lets dive into detailed analysis -
+
+📈 Technical Structure:
+- Trading above key moving averages
+- Stable volume support
+
+🏦 Fundamentals:
+- Business: Manufactures specialty inputs for global markets
+- Revenue model: B2B contracts with recurring demand
+
+✔️ Positives:
+- Strong export mix
+- Improving margins
+
+⚠️ Risks:
+- Raw material volatility
+- Currency exposure
+
+🔎 Outlook:
+Steady medium-term growth supported by export demand and margin stability."
   ]
 }
-
 `;
 
     const raw = await generateTweet(threadPrompt);
@@ -1773,15 +1828,26 @@ Example posts content (for guidance):
     }
 
     const safeTrim = (text, limit = 280) => {
-      if (text.length <= limit) return text;
-      // slice then trim last word; afterwards ensure suffix remains
-      let trimmed = text.slice(0, limit).replace(/\s+\S*$/, "").trim();
-      // if suffix got chopped off, reappend the full version
-      if (/see more\s*\.\.\.?$/i.test(trimmed) && !/see more \.+$/i.test(trimmed)) {
-        // ensure exactly three dots
-        trimmed = trimmed.replace(/see more\s*\.\.*$/i, "see more ...");
+      const requiredSuffix = "... Show more";
+    
+      // If already within limit, just ensure correct suffix format
+      if (text.length <= limit) {
+        return text.replace(/\.\.\.\s*show more$/i, requiredSuffix);
       }
-      return trimmed;
+    
+      // Remove existing suffix before trimming
+      let base = text.replace(/\.\.\.\s*show more$/i, "").trim();
+    
+      // Reserve space for suffix (including one space before it)
+      const reservedLength = requiredSuffix.length + 1;
+      const maxBaseLength = limit - reservedLength;
+    
+      let trimmedBase = base
+        .slice(0, maxBaseLength)
+        .replace(/\s+\S*$/, "")
+        .trim();
+    
+      return `${trimmedBase} ${requiredSuffix}`;
     };
 
     // Helpers to enforce required structure when model output is imperfect
@@ -1808,14 +1874,14 @@ Example posts content (for guidance):
         .replace(/\s+/g, " ")  // Normalize whitespace
         .trim();
       
-      // Build final structure: header + content + hashtag + see more ...
+      // Build final structure: header + content + hashtag + ... Show more
       const header = `Stock of the Day 🚀\n\n** ${stockName.trim()} **\n\n`;
       const hashtag = makeHashtag(stockName);
       // hashtags and suffix on their own lines with extra spacing
-      const suffix = `\n\n${hashtag}\n\nsee more ...`;
+      const suffix = `\n\n${hashtag}\n\n... Show more`;
       
-      // Remove any trailing see more or hashtags from content
-      t = t.replace(/\s*see more\s*\.{0,3}\s*$/i, '').trim();
+      // Remove any trailing "... Show more" or hashtags from content
+      t = t.replace(/\s*\.\.\.\s*show more\s*$/i, '').trim();
       t = t.replace(/\s*#\w+(\s+#\w+)*\s*$/i, '').trim();
       
       // Build final: header + content + suffix
