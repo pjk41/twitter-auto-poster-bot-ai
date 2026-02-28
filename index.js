@@ -1627,24 +1627,6 @@ async function generateTweet(prompt, retries = 3, delayMs = 40000) {
   }
 }
 
-function splitByWords(text, maxLen = 280) {
-  const words = text.split(" ");
-  const chunks = [];
-  let current = "";
-
-  for (const word of words) {
-    if ((current + " " + word).length > maxLen) {
-      chunks.push(current.trim());
-      current = word;
-    } else {
-      current += " " + word;
-    }
-  }
-
-  if (current.trim()) chunks.push(current.trim());
-  return chunks;
-}
-
 // --- Tweet sending function with max-length enforcement ---
 async function sendTweet(tweetText, replyToId = null) {
   try {
