@@ -1741,28 +1741,28 @@ Then two line breaks.
 
 Then follow this structure EXACTLY:
 
-Technical:
+📊 Technical:
 
 - Bullet point
 - Bullet point
 - Bullet point
 
-Fundamentals:
+📈 Fundamentals:
 
 - Bullet point
 - Bullet point
 
-Positives:
+✅ Positives:
 
 - Bullet point
 - Bullet point
 
-Risks:
+⚠️ Risks:
 
 - Bullet point
 - Bullet point
 
-Outlook:
+🔮 Outlook:
 
 Short 1–2 line forward-looking summary.
 
