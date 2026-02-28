@@ -1635,7 +1635,7 @@ async function sendTweet(tweetText, replyToId = null) {
     }
 
      // Explicit dry run toggle (set directly in code for testing)
-    const DRY_RUN = true; // change to false when you want to send real tweets
+    const DRY_RUN = false; // change to false when you want to send real tweets
     
     if (!twitterClient) {
       throw new Error("Twitter client not initialized");
