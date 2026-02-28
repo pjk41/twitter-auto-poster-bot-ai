@@ -1635,7 +1635,7 @@ async function sendTweet(tweetText, replyToId = null) {
     }
 
      // Explicit dry run toggle (set directly in code for testing)
-    const DRY_RUN = false; // change to false when you want to send real tweets
+    const DRY_RUN = true; // change to false when you want to send real tweets
     
     if (!twitterClient) {
       throw new Error("Twitter client not initialized");
@@ -1803,15 +1803,6 @@ Return only valid JSON.
       console.error("❌ Invalid posts structure");
       console.log(parsed);
       return;
-    }
-    
-    for (const tweet of parsed.posts) {
-      if (!tweet || !tweet.trim()) continue;
-    
-      replyToId = await sendTweet(tweet.trim(), replyToId);
-      if (!replyToId) break;
-    
-      await new Promise((r) => setTimeout(r, 800));
     }
 
     const safeTrim = (text, limit = 280) => {
