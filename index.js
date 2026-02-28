@@ -1931,7 +1931,6 @@ Return only valid JSON.
 
     console.log(`🧵 Posting ${finalPosts.length} tweets`);
 
-    let replyToId = null;
     for (const tweet of finalPosts) {
       replyToId = await sendTweet(tweet, replyToId);
       if (!replyToId) break;
