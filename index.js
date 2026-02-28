@@ -1673,6 +1673,8 @@ async function sendTweet(tweetText, replyToId = null) {
 // --- Main runner ---
 async function run() {
   try {
+
+    let replyToId = null;
     // special mode for demonstration without calling Gemini
     if (process.env.SAMPLE) {
       console.log("🔧 SAMPLE mode enabled – using hardcoded tweets");
@@ -1681,7 +1683,6 @@ async function run() {
         "Lets dive into detailed analysis -\n\n**Technicals:**\n- sample technical point.\n\n**Fundamentals:**\n- sample fundamental note.\n\n**Positives:**\n- none\n\n**Negatives:**\n- none\n\n**Outlook:** Neutral sample text."
       ];
 
-      let replyToId = null;
       for (const tweet of samplePosts) {
         replyToId = await sendTweet(tweet, replyToId);
         if (!replyToId) break;
