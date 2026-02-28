@@ -1844,18 +1844,33 @@ Return only valid JSON.
       return `#${candidate.replace(/[^A-Za-z0-9]/g, "")}`;
     }
 
-    function ensureFirstPostRules(text) {
+    function ensureFirstPostRules(text, stockName) {
       let t = text.trim();
     
-      // Remove triple newlines
-      t = t.replace(/\n{3,}/g, "\n\n");
+      // Normalize line endings
+      t = t.replace(/\r\n/g, "\n");
     
-      // Enforce 280 limit cleanly
-      if (t.length > 280) {
-        t = t.slice(0, 277).replace(/\s+\S*$/, "").trim() + "...";
-      }
+      const lines = t.split("\n").map(l => l.trim()).filter(Boolean);
     
-      return t;
+      if (lines.length < 4) return t;
+    
+      const title = lines[0];         // Stock of the Day 🚀
+      const name = lines[1];          // Stock name
+      const insight = lines[2];       // Insight line
+      const hashtags = lines[3].startsWith("#") ? lines[3] : makeHashtag(stockName);
+    
+      const final =
+    `${title}
+    
+    ${name}
+    
+    ${insight}
+    
+    ${hashtags}
+    
+    ... Show more`;
+    
+      return final;
     }
 
     // Only two posts expected; enforce limits and structural rules explicitly
