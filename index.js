@@ -1868,7 +1868,13 @@ Return only valid JSON.
       // Remove any trailing "... Show more" or hashtags from content
       t = t.replace(/\s*\.\.\.\s*show more\s*$/i, '').trim();
       t = t.replace(/\s*#\w+(\s+#\w+)*\s*$/i, '').trim();
+
+      // remove stock name if it appears at start of body
+      const escapedStock = stockName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const stockRegex = new RegExp(`^\\s*${escapedStock}\\s*`, 'i');
       
+      t = t.replace(stockRegex, '').trim();
+
       // Build final: header + content + suffix
       let result = header + t + suffix;
       
@@ -1885,7 +1891,6 @@ Return only valid JSON.
 
       return result;
     }
-
 
     // Only two posts expected; enforce limits and structural rules explicitly
     const finalPosts = parsed.posts.slice(0, 2).map((p, idx) => {
