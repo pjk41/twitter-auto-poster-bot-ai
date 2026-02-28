@@ -1634,8 +1634,6 @@ async function sendTweet(tweetText, replyToId = null) {
       throw new Error("Empty tweet text");
     }
 
-    console.log("Generated Tweet:", tweetText);
-
      // Explicit dry run toggle (set directly in code for testing)
     const DRY_RUN = true; // change to false when you want to send real tweets
     
@@ -1851,45 +1849,18 @@ Return only valid JSON.
       return `#${candidate.replace(/[^A-Za-z0-9]/g, "")}`;
     }
 
-    function ensureFirstPostRules(text, stockName) {
-      // Remove any existing headers/prefixes if present
-      let t = text
-        // strip any repeated header structures anywhere in the string
-        .replace(/Stock of the Day\s*🚀[\s\S]*?\*\*[^*]+\*\*/gi, '')
-        .replace(/\s+/g, " ")  // Normalize whitespace
-        .trim();
-      
-      // Build final structure: header + content + hashtag + ... Show more
-      const header = `Stock of the Day 🚀\n\n** ${stockName.trim()} **\n\n`;
-      const hashtag = makeHashtag(stockName);
-      // hashtags and suffix on their own lines with extra spacing
-      const suffix = `\n\n${hashtag}\n\n... Show more`;
-      
-      // Remove any trailing "... Show more" or hashtags from content
-      t = t.replace(/\s*\.\.\.\s*show more\s*$/i, '').trim();
-      t = t.replace(/\s*#\w+(\s+#\w+)*\s*$/i, '').trim();
-
-      // remove stock name if it appears at start of body
-      const escapedStock = stockName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      const stockRegex = new RegExp(`^\\s*${escapedStock}\\s*`, 'i');
-      
-      t = t.replace(stockRegex, '').trim();
-
-      // Build final: header + content + suffix
-      let result = header + t + suffix;
-      
-      // Enforce max length 280 by trimming body if needed
-      if (result.length > 280) {
-        // Reserve space for header and suffix
-        const reserved = header.length + suffix.length;
-        const maxBody = 280 - reserved;
-        if (maxBody > 0) {
-          let trimmed = t.slice(0, maxBody).replace(/\s+\S*$/, "").trim();
-          result = header + trimmed + suffix;
-        }
+    function ensureFirstPostRules(text) {
+      let t = text.trim();
+    
+      // Remove triple newlines
+      t = t.replace(/\n{3,}/g, "\n\n");
+    
+      // Enforce 280 limit cleanly
+      if (t.length > 280) {
+        t = t.slice(0, 277).replace(/\s+\S*$/, "").trim() + "...";
       }
-
-      return result;
+    
+      return t;
     }
 
     // Only two posts expected; enforce limits and structural rules explicitly
