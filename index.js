@@ -1711,6 +1711,7 @@ Generate a DAILY STOCK THREAD for X (Twitter).
 Stock: ${stock}
 
 Return output STRICTLY in this JSON format:
+
 {
   "posts": [
     "First post text",
@@ -1718,91 +1719,88 @@ Return output STRICTLY in this JSON format:
   ]
 }
 
-Very important rules (follow exactly):
+ABSOLUTE RULES (follow exactly):
 
-- Produce exactly two posts in the "posts" array.
+- Produce exactly TWO posts inside the "posts" array.
 - Do NOT include markdown formatting like ** or * anywhere.
-- Do NOT include backticks or code blocks.
-- Output plain text only inside the JSON.
+- Do NOT include backticks.
+- Do NOT include code blocks.
+- Do NOT add explanations outside JSON.
+- Output VALID JSON only.
+- Do NOT repeat section titles.
+- Do NOT merge headings with bullet points.
+- Do NOT include emojis inside bullet lines.
+- Keep language professional, concise and high-quality.
 
 ----------------------------------------
 POST 1 (Teaser)
 ----------------------------------------
 
-Structure exactly like this:
+Structure EXACTLY like this:
 
 Stock of the Day 🚀
 
-STOCK NAME (in normal text, no asterisks)
+STOCK NAME (plain text, no asterisks)
 
-1–2 concise lines explaining one very interesting insight about the company (industry leadership / unique product / catalyst / structural growth driver).
+1–2 concise, powerful lines explaining ONE very interesting insight about the company 
+(example: industry leadership, structural growth driver, competitive advantage, strong balance sheet, or emerging catalyst).
 
-Include at least ONE relevant hashtag at the end (e.g. #FMCG #Power #Banking #Infra etc).
+Include at least ONE relevant hashtag at the end (e.g. #Banking #FMCG #Power #Infra #Pharma #IT etc).
 
 Maximum 270 characters total.
 
-The final line must end exactly with:
+The final line MUST end exactly with:
+
 ... Show more
 
 ----------------------------------------
 POST 2 (Deep Dive)
 ----------------------------------------
 
-Start exactly with:
+Start EXACTLY with:
 
 Lets dive into detailed analysis -
 
 Then two line breaks.
 
-Use the exact section headers below (no bold, no markdown):
+Then follow this structure EXACTLY:
 
-📈 Technical Structure:
-🏦 Fundamentals:
-✔️ Positives:
-⚠️ Risks:
-🔎 Outlook:
+Technical:
 
-Under each header:
-- Use short bullet points starting with "- "
-- Keep language professional and investor-focused
-- Avoid hype and emojis inside content
-- Outlook must be ONE clear investor-style sentence
+- Bullet point
+- Bullet point
+- Bullet point
 
-Tone:
-Professional, concise, research-style. No hype. No exaggerated claims.
+Fundamentals:
 
-Example structure:
+- Bullet point
+- Bullet point
 
-{
-  "posts": [
-    "Stock of the Day 🚀
+Positives:
 
-Example Corp
+- Bullet point
+- Bullet point
 
-Leading player in specialty chemicals with strong export tailwinds driving margin expansion. #Chemicals ... Show more",
+Risks:
 
-    "Lets dive into detailed analysis -
+- Bullet point
+- Bullet point
 
-📈 Technical Structure:
-- Trading above key moving averages
-- Stable volume support
+Outlook:
 
-🏦 Fundamentals:
-- Business: Manufactures specialty inputs for global markets
-- Revenue model: B2B contracts with recurring demand
+Short 1–2 line forward-looking summary.
 
-✔️ Positives:
-- Strong export mix
-- Improving margins
+Rules for POST 2:
 
-⚠️ Risks:
-- Raw material volatility
-- Currency exposure
+- Use simple hyphen bullets only.
+- No emojis inside bullet lines.
+- Keep total length under 900 characters.
+- Do NOT repeat headings.
+- Do NOT restate entire analysis inside Outlook.
+- Keep tone neutral and analytical.
+- No investment advice language like "buy now" or "strong buy".
 
-🔎 Outlook:
-Steady medium-term growth supported by export demand and margin stability."
-  ]
-}
+Return only valid JSON.
 `;
 
     const raw = await generateTweet(threadPrompt);
