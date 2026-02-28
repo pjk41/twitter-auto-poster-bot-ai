@@ -1646,14 +1646,14 @@ async function sendTweet(tweetText, replyToId = null) {
 
     console.log("Generated Tweet:", tweetText);
 
-    // Explicit dry run ONLY if DRY_RUN === "true"
-    const isDryRun = process.env.DRY_RUN?.toLowerCase() === "true";
-
+     // Explicit dry run toggle (set directly in code for testing)
+    const DRY_RUN = true; // change to false when you want to send real tweets
+    
     if (!twitterClient) {
       throw new Error("Twitter client not initialized");
     }
-
-    if (isDryRun) {
+    
+    if (DRY_RUN) {
       console.log("🟡 [DRY RUN MODE] Tweet NOT sent to Twitter API");
       return `dry_${Math.random().toString(36).substring(2, 8)}`;
     }
