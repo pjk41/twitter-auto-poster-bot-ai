@@ -1619,7 +1619,7 @@ function splitIntoPosts(text) {
     .filter(Boolean);
 }
 
-function splitByWords(text, maxLen = 270) {
+function splitByWords(text, maxLen = 280) {
   const words = text.split(" ");
   const chunks = [];
   let current = "";
@@ -1772,7 +1772,7 @@ Example posts content (for guidance):
       return;
     }
 
-    const safeTrim = (text, limit = 270) => {
+    const safeTrim = (text, limit = 280) => {
       if (text.length <= limit) return text;
       // slice then trim last word; afterwards ensure suffix remains
       let trimmed = text.slice(0, limit).replace(/\s+\S*$/, "").trim();
@@ -1821,11 +1821,11 @@ Example posts content (for guidance):
       // Build final: header + content + suffix
       let result = header + t + suffix;
       
-      // Enforce max length 270 by trimming body if needed
-      if (result.length > 270) {
+      // Enforce max length 280 by trimming body if needed
+      if (result.length > 280) {
         // Reserve space for header and suffix
         const reserved = header.length + suffix.length;
-        const maxBody = 270 - reserved;
+        const maxBody = 280 - reserved;
         if (maxBody > 0) {
           let trimmed = t.slice(0, maxBody).replace(/\s+\S*$/, "").trim();
           result = header + trimmed + suffix;
@@ -1860,7 +1860,7 @@ Example posts content (for guidance):
       const trimmed = p.replace(/\n{3,}/g, "\n\n").trim();
       if (idx === 0) {
         const enforced = ensureFirstPostRules(trimmed, stock);
-        return safeTrim(enforced, 270);
+        return safeTrim(enforced, 280);
       }
       // second post: ensure sections then optionally cap with a very large limit
       let enforced2 = ensureSecondPostSections(trimmed);
