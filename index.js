@@ -1675,21 +1675,6 @@ async function run() {
   try {
 
     let replyToId = null;
-    // special mode for demonstration without calling Gemini
-    if (process.env.SAMPLE) {
-      console.log("🔧 SAMPLE mode enabled – using hardcoded tweets");
-      const samplePosts = [
-        "Stock of the Day 🚀\n\n** Sample Co **\n\nThis is test content describing the company. #Sample\n\n... Show more",
-        "Lets dive into detailed analysis -\n\n**Technicals:**\n- sample technical point.\n\n**Fundamentals:**\n- sample fundamental note.\n\n**Positives:**\n- none\n\n**Negatives:**\n- none\n\n**Outlook:** Neutral sample text."
-      ];
-
-      for (const tweet of samplePosts) {
-        replyToId = await sendTweet(tweet, replyToId);
-        if (!replyToId) break;
-        await new Promise((r) => setTimeout(r, 500));
-      }
-      return;
-    }
 
     const stock = getNextStock()
       .replace(/&amp;/g, "&")
