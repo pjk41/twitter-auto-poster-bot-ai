@@ -1806,12 +1806,6 @@ Return only valid JSON.
     for (const tweet of parsed.posts) {
       if (!tweet || !tweet.trim()) continue;
     
-      if (tweet.length > 280) {
-        console.error("❌ Tweet exceeds 280 characters");
-        console.log(tweet);
-        return;
-      }
-    
       replyToId = await sendTweet(tweet.trim(), replyToId);
       if (!replyToId) break;
     
