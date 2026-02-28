@@ -1642,6 +1642,10 @@ async function sendTweet(tweetText, replyToId = null) {
     }
     
     if (DRY_RUN) {
+      console.log("---- TWEET START ----");
+      console.log(tweetText);
+      console.log("---- TWEET END ----\n");
+    
       console.log("🟡 [DRY RUN MODE] Tweet NOT sent to Twitter API");
       return `dry_${Math.random().toString(36).substring(2, 8)}`;
     }
