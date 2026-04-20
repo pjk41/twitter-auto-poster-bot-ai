@@ -1698,7 +1698,7 @@ Guidance:
 }
 
 // --- Retry wrapper for Gemini calls (FIXED VERSION) ---
-async function generateTweet(prompt, retries = 5, delayMs = 60000) {
+async function generateTweet(prompt, retries = 3, delayMs = 60000) {
   try {
     const model = genAI.getGenerativeModel({ model: "gemini-3-flash" });
 
