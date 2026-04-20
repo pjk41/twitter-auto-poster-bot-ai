@@ -1,7 +1,6 @@
 // index.js
 import { TwitterApi } from "twitter-api-v2";
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import { execSync } from "child_process";
 import dotenv from "dotenv";
 
 dotenv.config();
@@ -16,6 +15,15 @@ const twitterClient = new TwitterApi({
 
 // --- Gemini client setup ---
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+
+const FIXED_HASHTAGS = [
+  "#NIFTY50",
+  "#GIFTNIFTY",
+  "#SHAREMARKET",
+  "#DALALSTREET",
+  "#STOCKMARKET",
+  "#StocksToWatch",
+];
 
 // --- List of stocks ---
 const stocks = [
@@ -1593,6 +1601,102 @@ function getNextStock() {
   return stock;
 }
 
+async function fetchTickerFromYahoo(stockName) {
+  try {
+    const url = `https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(stockName)}&quotesCount=10&newsCount=0`;
+    const response = await fetch(url, {
+      headers: {
+        "User-Agent": "Mozilla/5.0",
+      },
+    });
+    if (!response.ok) return null;
+    const data = await response.json();
+    const quotes = data.quotes || [];
+    if (!quotes.length) return null;
+
+    const nseQuote = quotes.find((q) => {
+      const symbol = q.symbol || "";
+      const exchange = (q.exchange || q.exch || "").toString().toUpperCase();
+      return exchange === "NSE" || symbol.endsWith(".NS") || symbol.endsWith("-NS");
+    });
+
+    return (nseQuote || quotes[0]).symbol || null;
+  } catch (err) {
+    console.warn("⚠️ Yahoo ticker lookup failed:", err.message || err);
+    return null;
+  }
+}
+
+function average(array) {
+  return array.reduce((acc, value) => acc + value, 0) / array.length;
+}
+
+async function fetchStockMetrics(ticker) {
+  if (!ticker) return null;
+  try {
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?interval=1d&range=1y`;
+    const response = await fetch(url, {
+      headers: {
+        "User-Agent": "Mozilla/5.0",
+      },
+    });
+    if (!response.ok) return null;
+    const data = await response.json();
+    const result = data.chart?.result?.[0];
+    if (!result) return null;
+
+    const closes = result.indicators?.quote?.[0]?.close || [];
+    const timestamps = result.timestamp || [];
+    const daily = closes
+      .map((close, index) => ({
+        close,
+        date: timestamps[index] ? new Date(timestamps[index] * 1000) : null,
+      }))
+      .filter((item) => typeof item.close === "number" && item.date);
+
+    if (daily.length < 50) return null;
+
+    const latest = daily[daily.length - 1];
+    const closeValues = daily.map((item) => item.close);
+    const last252 = closeValues.slice(-252);
+    const last50 = closeValues.slice(-50);
+    const last200 = closeValues.slice(-200);
+
+    return {
+      ticker,
+      latestClose: latest.close,
+      latestDate: latest.date.toISOString().split("T")[0],
+      week52High: Math.max(...last252),
+      week52Low: Math.min(...last252),
+      sma50: average(last50),
+      sma200: average(last200),
+    };
+  } catch (err) {
+    console.warn("⚠️ Yahoo stock metrics failed:", err.message || err);
+    return null;
+  }
+}
+
+function formatLatestDataForPrompt(marketData) {
+  if (!marketData) {
+    return `Latest market snapshot is not available for this stock. Use only the information provided below and do not invent or exaggerate technical claims.`;
+  }
+
+  return `Latest market snapshot for ${marketData.ticker}:
+- Latest close: ₹${marketData.latestClose.toFixed(2)} (as of ${marketData.latestDate})
+- 52-week high: ₹${marketData.week52High.toFixed(2)}
+- 52-week low: ₹${marketData.week52Low.toFixed(2)}
+- 50-day SMA: ₹${marketData.sma50.toFixed(2)}
+- 200-day SMA: ₹${marketData.sma200.toFixed(2)}
+
+Guidance:
+- Only use these exact values in the analysis.
+- Do NOT say the stock is near a 52-week high unless it is within 2% of the 52-week high.
+- Do NOT say it is above the 50/200 DMA unless the latest close is above that moving average.
+- Do NOT invent any additional numerical data or price relationships.
+`;
+}
+
 // --- Retry wrapper for Gemini calls (FIXED VERSION) ---
 async function generateTweet(prompt, retries = 3, delayMs = 40000) {
   try {
@@ -1683,10 +1787,16 @@ async function run() {
       .replace(/\s+/g, " ")
       .trim();
 
+    const ticker = await fetchTickerFromYahoo(stock);
+    const marketData = await fetchStockMetrics(ticker);
+    const marketSummary = formatLatestDataForPrompt(marketData);
+
     const threadPrompt = `
 Generate a DAILY STOCK THREAD for X (Twitter).
 
 Stock: ${stock}
+Ticker: ${ticker || "unknown"}
+${marketSummary}
 
 Return output STRICTLY in this JSON format:
 
@@ -1709,6 +1819,7 @@ ABSOLUTE RULES (follow exactly):
 - Do NOT merge headings with bullet points.
 - Do NOT include emojis inside bullet lines.
 - Keep language professional, concise and high-quality.
+- Do NOT fabricate exact price or technical claims; use only the data shown above.
 
 ----------------------------------------
 POST 1 (Teaser)
@@ -1725,7 +1836,7 @@ STOCK NAME (plain text, no asterisks)
 
 Include at least ONE relevant hashtag at the end (e.g. #Banking #FMCG #Power #Infra #Pharma #IT etc).
 
-Maximum 270 characters total.
+No fixed character limit; keep it concise and powerful.
 
 The final line MUST end exactly with:
 
@@ -1805,18 +1916,14 @@ Return only valid JSON.
       return;
     }
 
-    const safeTrim = (text, limit = 280) => {
+    const safeTrim = (text, limit = 1000) => {
       const requiredSuffix = "... Show more";
     
-      // If already within limit, just ensure correct suffix format
       if (text.length <= limit) {
         return text.replace(/\.\.\.\s*show more$/i, requiredSuffix);
       }
     
-      // Remove existing suffix before trimming
       let base = text.replace(/\.\.\.\s*show more$/i, "").trim();
-    
-      // Reserve space for suffix (including one space before it)
       const reservedLength = requiredSuffix.length + 1;
       const maxBaseLength = limit - reservedLength;
     
@@ -1848,30 +1955,31 @@ Return only valid JSON.
       let t = text.replace(/\r\n/g, "\n").trim();
     
       // Remove existing "... Show more"
-      t = t.replace(/\.\.\.\s*Show more/i, "").trim();
+      t = t.replace(/\.\.\.\s*Show more$/i, "").trim();
     
-      // Extract hashtag line (first line starting with #)
+      // Extract first hashtag if present
       const hashtagMatch = t.match(/#[^\n]+/);
-      const hashtag = hashtagMatch ? hashtagMatch[0].trim() : makeHashtag(stockName);
+      const stockHashtag = makeHashtag(stockName);
     
-      // Remove hashtag from main text
       if (hashtagMatch) {
         t = t.replace(hashtagMatch[0], "").trim();
       }
     
-      const lines = t.split("\n").map(l => l.trim()).filter(Boolean);
-    
+      const lines = t.split("\n").map((l) => l.trim()).filter(Boolean);
       const insight = lines.slice(2).join(" ");
     
+      const hashtags = [stockHashtag, ...FIXED_HASHTAGS];
+      const uniqueHashtags = [...new Set(hashtags)];
+    
       return `Stock of the Day 🚀
-    
-    ${stockName}
-    
-    ${insight}
-    
-    ${hashtag}
-    
-    ... Show more`;
+
+${stockName}
+
+${insight}
+
+${uniqueHashtags.join(" ")}
+
+... Show more`;
     }
 
     // Only two posts expected; enforce limits and structural rules explicitly
