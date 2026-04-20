@@ -1749,7 +1749,12 @@ Business Summary: ${fundamentals.businessSummary || 'Not available'}
 
 `;
   } else {
-    prompt += `Company fundamentals: Not available for this stock.
+    prompt += `Company fundamentals: Not available regionally listed/micro stocks.
+
+When fundamental data is unavailable, analyze using:
+- Business Model: What's the company's niche and primary business focus?
+- Competitive Moat: What unique advantages, technologies, or market positions protect the business?
+- Unique Value Proposition: What makes this company different from competitors in its space?
 
 `;
   }
@@ -1759,10 +1764,11 @@ Business Summary: ${fundamentals.businessSummary || 'Not available'}
 - Do NOT say the stock is near a 52-week high unless it is within 2% of the 52-week high.
 - Do NOT say it is above the 50/200 DMA unless the latest close is above that moving average.
 - Do NOT invent any additional numerical data or price relationships.
-- For fundamentals section, use the provided company data to discuss valuation, profitability, and business quality.
-- Make the first post teaser specific and compelling - highlight ONE unique aspect of the company's business or competitive advantage from the business summary.
+- For fundamentals section with available data: use valuation, profitability, and balance sheet metrics.
+- For fundamentals section without data: focus on the company's niche, competitive moat, and unique business strengths.
+- Make the first post teaser specific and compelling - highlight ONE unique aspect of the company's business or competitive advantage.
 - Avoid generic statements like "benefiting from sector growth" - be specific about what makes this company interesting.
-- Use the business summary to identify unique products, technologies, or market positions that differentiate this company.`;
+- Use business information to identify unique products, technologies, market positions, or business models.`;
 
   return prompt;
 }
@@ -1942,23 +1948,10 @@ Then follow this structure EXACTLY:
 
 📈 Fundamentals:
 
-- Valuation metrics (P/E, P/B ratios) and what they indicate about the stock's pricing
-- Profitability indicators (ROE, profit margins) and business quality assessment
-- Balance sheet strength (debt-to-equity) and financial health
-- Business overview highlighting competitive advantages or market position
-
-✅ Positives:
-
-- Bullet point
-- Bullet point
-
-⚠️ Risks:
-
-- Bullet point
-- Bullet point
-
-🔮 Outlook:
-- Bullet point
+- If valuation data available: discuss P/E, P/B ratios and pricing implications
+- If profitability data available: ROE, profit margins, and business quality
+- If balance sheet data available: debt-to-equity and financial health
+- If data unavailable: discuss the company's niche, competitive moat, and unique business strengths that create value
 
 ✅ Positives:
 
