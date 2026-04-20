@@ -1698,7 +1698,7 @@ Guidance:
 }
 
 // --- Retry wrapper for Gemini calls (FIXED VERSION) ---
-async function generateTweet(prompt, retries = 3, delayMs = 40000) {
+async function generateTweet(prompt, retries = 5, delayMs = 60000) {
   try {
     const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
@@ -1719,11 +1719,26 @@ async function generateTweet(prompt, retries = 3, delayMs = 40000) {
 
     return text;
   } catch (err) {
-    if (
-      (err.message.includes("429") || err.message.includes("quota")) &&
-      retries > 0
-    ) {
-      console.log(`Rate limited. Retrying in ${delayMs / 1000}s...`);
+    const isRetryable =
+      err.message.includes("429") ||
+      err.message.includes("quota") ||
+      err.message.includes("503") ||
+      err.message.includes("500") ||
+      err.message.includes("502") ||
+      err.message.includes("Service Unavailable") ||
+      err.message.includes("temporarily unavailable");
+
+    if (isRetryable && retries > 0) {
+      const reason =
+        err.message.includes("503") || err.message.includes("Service Unavailable")
+          ? "Service temporarily unavailable"
+          : err.message.includes("429")
+            ? "Rate limited"
+            : "Temporary error";
+
+      console.log(
+        `⚠️ ${reason}. Retrying in ${delayMs / 1000}s... (${retries} retries left)`
+      );
       await new Promise((r) => setTimeout(r, delayMs));
       return generateTweet(prompt, retries - 1, delayMs);
     }
