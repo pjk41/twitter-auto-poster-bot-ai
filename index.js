@@ -1677,24 +1677,94 @@ async function fetchStockMetrics(ticker) {
   }
 }
 
-function formatLatestDataForPrompt(marketData) {
+async function fetchFundamentals(ticker) {
+  if (!ticker) return null;
+  try {
+    const url = `https://query2.finance.yahoo.com/v10/finance/quoteSummary/${encodeURIComponent(ticker)}?modules=summaryDetail,assetProfile,financialData,defaultKeyStatistics`;
+    const response = await fetch(url, {
+      headers: {
+        "User-Agent": "Mozilla/5.0",
+      },
+    });
+    if (!response.ok) return null;
+    const data = await response.json();
+    const result = data.quoteSummary?.result?.[0];
+    if (!result) return null;
+
+    const summaryDetail = result.summaryDetail || {};
+    const assetProfile = result.assetProfile || {};
+    const financialData = result.financialData || {};
+    const keyStats = result.defaultKeyStatistics || {};
+
+    return {
+      marketCap: summaryDetail.marketCap?.raw,
+      peRatio: summaryDetail.trailingPE?.raw,
+      pbRatio: summaryDetail.priceToBook?.raw,
+      dividendYield: summaryDetail.dividendYield?.raw,
+      sector: assetProfile.industry,
+      industry: assetProfile.sector,
+      businessSummary: assetProfile.longBusinessSummary,
+      revenue: financialData.totalRevenue?.raw,
+      profitMargin: financialData.profitMargins?.raw,
+      returnOnEquity: financialData.returnOnEquity?.raw,
+      debtToEquity: financialData.debtToEquity?.raw,
+      beta: summaryDetail.beta?.raw,
+      volume: summaryDetail.volume?.raw,
+      avgVolume: summaryDetail.averageVolume?.raw,
+    };
+  } catch (err) {
+    console.warn("⚠️ Yahoo fundamentals failed:", err.message || err);
+    return null;
+  }
+}
+
+function formatLatestDataForPrompt(marketData, fundamentals) {
   if (!marketData) {
     return `Latest market snapshot is not available for this stock. Use only the information provided below and do not invent or exaggerate technical claims.`;
   }
 
-  return `Latest market snapshot for ${marketData.ticker}:
+  let prompt = `Latest market snapshot for ${marketData.ticker}:
 - Latest close: ₹${marketData.latestClose.toFixed(2)} (as of ${marketData.latestDate})
 - 52-week high: ₹${marketData.week52High.toFixed(2)}
 - 52-week low: ₹${marketData.week52Low.toFixed(2)}
 - 50-day SMA: ₹${marketData.sma50.toFixed(2)}
 - 200-day SMA: ₹${marketData.sma200.toFixed(2)}
 
-Guidance:
+`;
+
+  if (fundamentals) {
+    prompt += `Company fundamentals:
+- Market Cap: ${fundamentals.marketCap ? `₹${(fundamentals.marketCap / 10000000).toFixed(0)} Cr` : 'N/A'}
+- P/E Ratio: ${fundamentals.peRatio ? fundamentals.peRatio.toFixed(2) : 'N/A'}
+- P/B Ratio: ${fundamentals.pbRatio ? fundamentals.pbRatio.toFixed(2) : 'N/A'}
+- Dividend Yield: ${fundamentals.dividendYield ? `${(fundamentals.dividendYield * 100).toFixed(2)}%` : 'N/A'}
+- Sector: ${fundamentals.sector || 'N/A'}
+- Industry: ${fundamentals.industry || 'N/A'}
+- Debt-to-Equity: ${fundamentals.debtToEquity ? fundamentals.debtToEquity.toFixed(2) : 'N/A'}
+- Return on Equity: ${fundamentals.returnOnEquity ? `${(fundamentals.returnOnEquity * 100).toFixed(2)}%` : 'N/A'}
+- Profit Margin: ${fundamentals.profitMargin ? `${(fundamentals.profitMargin * 100).toFixed(2)}%` : 'N/A'}
+- Beta: ${fundamentals.beta ? fundamentals.beta.toFixed(2) : 'N/A'}
+
+Business Summary: ${fundamentals.businessSummary || 'Not available'}
+
+`;
+  } else {
+    prompt += `Company fundamentals: Not available for this stock.
+
+`;
+  }
+
+  prompt += `Guidance:
 - Only use these exact values in the analysis.
 - Do NOT say the stock is near a 52-week high unless it is within 2% of the 52-week high.
 - Do NOT say it is above the 50/200 DMA unless the latest close is above that moving average.
 - Do NOT invent any additional numerical data or price relationships.
-`;
+- For fundamentals section, use the provided company data to discuss valuation, profitability, and business quality.
+- Make the first post teaser specific and compelling - highlight ONE unique aspect of the company's business or competitive advantage from the business summary.
+- Avoid generic statements like "benefiting from sector growth" - be specific about what makes this company interesting.
+- Use the business summary to identify unique products, technologies, or market positions that differentiate this company.`;
+
+  return prompt;
 }
 
 // --- Retry wrapper for Gemini calls (FIXED VERSION) ---
@@ -1804,7 +1874,8 @@ async function run() {
 
     const ticker = await fetchTickerFromYahoo(stock);
     const marketData = await fetchStockMetrics(ticker);
-    const marketSummary = formatLatestDataForPrompt(marketData);
+    const fundamentals = await fetchFundamentals(ticker);
+    const marketSummary = formatLatestDataForPrompt(marketData, fundamentals);
 
     const threadPrompt = `
 Generate a DAILY STOCK THREAD for X (Twitter).
@@ -1849,13 +1920,7 @@ STOCK NAME (plain text, no asterisks)
 1–2 concise, powerful lines explaining ONE very interesting insight about the company 
 (example: industry leadership, structural growth driver, competitive advantage, strong balance sheet, or emerging catalyst).
 
-Include at least ONE relevant hashtag at the end (e.g. #Banking #FMCG #Power #Infra #Pharma #IT etc).
-
 No fixed character limit; keep it concise and powerful.
-
-The final line MUST end exactly with:
-
-... Show more
 
 ----------------------------------------
 POST 2 (Deep Dive)
@@ -1871,13 +1936,28 @@ Then follow this structure EXACTLY:
 
 📊 Technical:
 
-- Bullet point
-- Bullet point
-- Bullet point
+- Current price position relative to key levels (52-week high/low, moving averages)
+- Recent price action and trend indicators
+- Volume analysis if available
 
 📈 Fundamentals:
 
+- Valuation metrics (P/E, P/B ratios) and what they indicate about the stock's pricing
+- Profitability indicators (ROE, profit margins) and business quality assessment
+- Balance sheet strength (debt-to-equity) and financial health
+- Business overview highlighting competitive advantages or market position
+
+✅ Positives:
+
 - Bullet point
+- Bullet point
+
+⚠️ Risks:
+
+- Bullet point
+- Bullet point
+
+🔮 Outlook:
 - Bullet point
 
 ✅ Positives:
@@ -1992,9 +2072,7 @@ ${stockName}
 
 ${insight}
 
-${uniqueHashtags.join(" ")}
-
-... Show more`;
+${uniqueHashtags.join(" ")}`;
     }
 
     // Only two posts expected; enforce limits and structural rules explicitly
@@ -2003,7 +2081,7 @@ ${uniqueHashtags.join(" ")}
     
       if (idx === 0) {
         const enforced = ensureFirstPostRules(trimmed, stock);
-        return safeTrim(enforced, 280);
+        return enforced; // No character limit for first post (X Premium)
       }
     
       return trimmed; // DO NOT MODIFY second post
