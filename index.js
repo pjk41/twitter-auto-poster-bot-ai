@@ -101,7 +101,7 @@ async function fetchIndexMetrics(ticker) {
   if (!ticker) return null;
 
   try {
-    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?interval=5m&range=2d`;
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?interval=1d&range=5d`;
     const response = await fetch(url, {
       headers: {
         "User-Agent": "Mozilla/5.0",
@@ -114,21 +114,22 @@ async function fetchIndexMetrics(ticker) {
     if (!result) return null;
 
     const closes = result.indicators?.quote?.[0]?.close || [];
+    const opens = result.indicators?.quote?.[0]?.open || [];
     const timestamps = result.timestamp || [];
+
     const points = closes
       .map((close, index) => ({
         close,
-        date: timestamps[index] ? new Date(timestamps[index] * 1000) : null,
+        open: opens[index],
+        timestamp: timestamps[index],
       }))
-      .filter((item) => typeof item.close === "number" && item.date);
+      .filter((item) => typeof item.close === "number" && typeof item.open === "number");
 
-    if (!points.length) return null;
+    if (points.length < 2) return null;
 
     const latest = points[points.length - 1];
-    const previous = points.slice(0, -1).reverse().find((point) => typeof point.close === "number");
-    const changePercent = previous
-      ? ((latest.close - previous.close) / previous.close) * 100
-      : null;
+    const previous = points[points.length - 2];
+    const changePercent = ((latest.close - previous.close) / previous.close) * 100;
 
     return {
       ticker,
@@ -155,32 +156,36 @@ async function runMarketPulse() {
       })
     );
 
-    const snapshotLines = snapshots.map((snapshot) => {
+    const indexLines = snapshots.map((snapshot, idx) => {
       if (!snapshot.latestClose) {
-        return `${snapshot.label}: data unavailable`;
+        return `${snapshot.label} at data unavailable`;
       }
 
-      const changeText =
-        typeof snapshot.changePercent === "number"
-          ? ` (${snapshot.changePercent >= 0 ? "+" : ""}${snapshot.changePercent.toFixed(2)}%)`
-          : "";
+      const changeText = typeof snapshot.changePercent === "number"
+        ? ` (${snapshot.changePercent >= 0 ? "+" : ""}${snapshot.changePercent.toFixed(2)}%)`
+        : "";
 
-      return `${snapshot.label}: ₹${snapshot.latestClose.toFixed(2)}${changeText}`;
+      const lineEnd = idx < snapshots.length - 1 ? "," : "";
+      return `${snapshot.label} at ₹${snapshot.latestClose.toFixed(2)}${changeText}${lineEnd}`;
     });
 
-    const prompt = `Write one single X tweet based on the market snapshot below. Use the snapshot lines exactly as provided. Keep the tone conversational and engaging. Do not include any hashtags; they will be added separately. Do not add any extra numerical values beyond the snapshot lines.`;
+    const indexData = indexLines.join("\n");
 
-    const raw = await generateTweet(`${prompt}\n\n${snapshotLines.join("\n")}`);
+    const prompt = `Write an engaging single X tweet about the following market indices. Start with a conversational and witty opening line about the market sentiment. Then include the index data exactly as provided (do not modify or reformat the data lines). Add a closing line that's engaging and invites interaction. Keep it friendly and conversational. Do not include hashtags.
+
+Index data:
+${indexData}`;
+
+    const raw = await generateTweet(prompt);
     const tweetBody = raw.replace(/```/g, "").trim();
 
     const hashtags = ["#Nifty", "#BankNifty", "#Sensex", ...FIXED_HASHTAGS];
     const uniqueHashtags = [...new Set(hashtags)].join(" ");
 
     const tweetText = `${tweetBody}\n\n${uniqueHashtags}`;
-    const finalTweet = tweetText.length <= 280 ? tweetText : `${tweetText.slice(0, 277).trim()}...`;
 
     console.log("🧠 Market Pulse tweet generated");
-    await sendTweet(finalTweet);
+    await sendTweet(tweetText);
   } catch (err) {
     console.error("❌ Market Pulse workflow failed:", err);
   }
