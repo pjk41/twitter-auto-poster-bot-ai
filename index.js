@@ -25,6 +25,183 @@ const FIXED_HASHTAGS = [
   "#StocksToWatch",
 ];
 
+const MARKET_INDEXES = [
+  { label: "NIFTY 50", ticker: "^NSEI" },
+  { label: "BANK NIFTY", ticker: "^NSEBANK" },
+  { label: "SENSEX", ticker: "^BSESN" },
+];
+
+const TRADING_HOLIDAYS = (process.env.MARKET_HOLIDAYS || "2025-01-26,2025-03-29,2025-08-15,2025-10-02,2025-10-22,2025-12-25,2026-01-26,2026-03-25,2026-08-15,2026-10-02,2026-11-04,2026-12-25")
+  .split(",")
+  .map((date) => date.trim())
+  .filter(Boolean);
+
+const BOT_MODE = process.env.MODE?.trim().toLowerCase() || "daily_thread";
+
+function getISTDate(date = new Date()) {
+  const [month, day, yearAndTime] = date
+    .toLocaleString("en-US", {
+      timeZone: "Asia/Kolkata",
+      hour12: false,
+    })
+    .split("/");
+
+  const [year, time] = yearAndTime.split(", ");
+  const [hour, minute, second] = time.split(":").map(Number);
+  return new Date(Date.UTC(Number(year), Number(month) - 1, Number(day), hour, minute, second));
+}
+
+function getISTDateString(date = new Date()) {
+  return getISTDate(date).toISOString().split("T")[0];
+}
+
+function isWeekend(date) {
+  const day = date.getUTCDay();
+  return day === 0 || day === 6;
+}
+
+function isMarketHoliday(date) {
+  return TRADING_HOLIDAYS.includes(getISTDateString(date));
+}
+
+function isTradingDay(date) {
+  return !isWeekend(date) && !isMarketHoliday(date);
+}
+
+function makeISTEvent(date, hour, minute) {
+  const year = date.getUTCFullYear();
+  const month = date.getUTCMonth();
+  const day = date.getUTCDate();
+  const istOffsetMs = 5.5 * 60 * 60 * 1000;
+  return new Date(Date.UTC(year, month, day, hour, minute) - istOffsetMs);
+}
+
+function getNextMarketPulseTime(reference = new Date()) {
+  const now = reference.getTime();
+  const todayIst = getISTDate(reference);
+  const targets = [
+    { hour: 9, minute: 30 },
+    { hour: 11, minute: 0 },
+  ];
+
+  for (const { hour, minute } of targets) {
+    const event = makeISTEvent(todayIst, hour, minute);
+    if (event.getTime() > now + 1000) return event;
+  }
+
+  let nextDay = new Date(todayIst.getTime() + 24 * 60 * 60 * 1000);
+  while (!isTradingDay(nextDay)) {
+    nextDay = new Date(nextDay.getTime() + 24 * 60 * 60 * 1000);
+  }
+
+  return makeISTEvent(nextDay, 9, 30);
+}
+
+async function fetchIndexMetrics(ticker) {
+  if (!ticker) return null;
+
+  try {
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?interval=5m&range=2d`;
+    const response = await fetch(url, {
+      headers: {
+        "User-Agent": "Mozilla/5.0",
+      },
+    });
+    if (!response.ok) return null;
+
+    const data = await response.json();
+    const result = data.chart?.result?.[0];
+    if (!result) return null;
+
+    const closes = result.indicators?.quote?.[0]?.close || [];
+    const timestamps = result.timestamp || [];
+    const points = closes
+      .map((close, index) => ({
+        close,
+        date: timestamps[index] ? new Date(timestamps[index] * 1000) : null,
+      }))
+      .filter((item) => typeof item.close === "number" && item.date);
+
+    if (!points.length) return null;
+
+    const latest = points[points.length - 1];
+    const previous = points.slice(0, -1).reverse().find((point) => typeof point.close === "number");
+    const changePercent = previous
+      ? ((latest.close - previous.close) / previous.close) * 100
+      : null;
+
+    return {
+      ticker,
+      latestClose: latest.close,
+      changePercent,
+    };
+  } catch (err) {
+    console.warn(`⚠️ Failed to fetch metrics for index ${ticker}:`, err.message || err);
+    return null;
+  }
+}
+
+async function runMarketPulse() {
+  try {
+    console.log("📈 Running Market Pulse workflow...");
+
+    const snapshots = await Promise.all(
+      MARKET_INDEXES.map(async (index) => {
+        const metrics = await fetchIndexMetrics(index.ticker);
+        return {
+          label: index.label,
+          ...(metrics || {}),
+        };
+      })
+    );
+
+    const snapshotLines = snapshots.map((snapshot) => {
+      if (!snapshot.latestClose) {
+        return `${snapshot.label}: data unavailable`;
+      }
+
+      const changeText =
+        typeof snapshot.changePercent === "number"
+          ? ` (${snapshot.changePercent >= 0 ? "+" : ""}${snapshot.changePercent.toFixed(2)}%)`
+          : "";
+
+      return `${snapshot.label}: ₹${snapshot.latestClose.toFixed(2)}${changeText}`;
+    });
+
+    const prompt = `Write one single X tweet based on the market snapshot below. Use the snapshot lines exactly as provided. Keep the tone conversational and engaging. Do not include any hashtags; they will be added separately. Do not add any extra numerical values beyond the snapshot lines.`;
+
+    const raw = await generateTweet(`${prompt}\n\n${snapshotLines.join("\n")}`);
+    const tweetBody = raw.replace(/```/g, "").trim();
+
+    const hashtags = ["#Nifty", "#BankNifty", "#Sensex", ...FIXED_HASHTAGS];
+    const uniqueHashtags = [...new Set(hashtags)].join(" ");
+
+    const tweetText = `${tweetBody}\n\n${uniqueHashtags}`;
+    const finalTweet = tweetText.length <= 280 ? tweetText : `${tweetText.slice(0, 277).trim()}...`;
+
+    console.log("🧠 Market Pulse tweet generated");
+    await sendTweet(finalTweet);
+  } catch (err) {
+    console.error("❌ Market Pulse workflow failed:", err);
+  }
+}
+
+function scheduleMarketPulse() {
+  const nextRun = getNextMarketPulseTime(new Date());
+  const nextRunLocal = nextRun.toLocaleString("en-US", { timeZone: "Asia/Kolkata", hour12: false });
+  console.log(`⏱️ Next Market Pulse scheduled for ${nextRunLocal} IST`);
+
+  const delayMs = nextRun.getTime() - Date.now();
+  setTimeout(async () => {
+    if (isTradingDay(getISTDate(new Date()))) {
+      await runMarketPulse();
+    } else {
+      console.log("🚫 Today is a holiday or weekend. Skipping scheduled Market Pulse.");
+    }
+    scheduleMarketPulse();
+  }, Math.max(delayMs, 0));
+}
+
 // --- List of stocks ---
 const stocks = [
   "20 Microns Limited ",
@@ -2095,4 +2272,8 @@ ${uniqueHashtags.join(" ")}`;
   }
 }
 
-run();
+if (BOT_MODE === "market_pulse") {
+  runMarketPulse();
+} else {
+  run();
+}
