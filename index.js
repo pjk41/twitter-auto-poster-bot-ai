@@ -159,20 +159,28 @@ async function runMarketPulse() {
 
     const indexLines = snapshots.map((snapshot, idx) => {
       if (!snapshot.latestClose) {
-        return `${snapshot.label} at data unavailable`;
+        return `${snapshot.label} data unavailable`;
       }
 
       const changeText = typeof snapshot.changePercent === "number"
-        ? ` (${snapshot.changePercent >= 0 ? "+" : ""}${snapshot.changePercent.toFixed(2)}%)`
-        : "";
+        ? `${snapshot.changePercent >= 0 ? "⬆️" : "⬇️"} ${Math.abs(snapshot.changePercent).toFixed(2)}%`
+        : "change unavailable";
 
       const lineEnd = idx < snapshots.length - 1 ? "," : "";
-      return `${snapshot.label} at ₹${snapshot.latestClose.toFixed(2)}${changeText}${lineEnd}`;
+      return `${snapshot.label} ${changeText}${lineEnd}`;
     });
 
     const indexData = indexLines.join("\n");
 
-    const prompt = `Write an engaging single X tweet about the following market indices. Start with a conversational and witty opening line about the market sentiment. Then include the index data exactly as provided (do not modify or reformat the data lines). Add a closing line that's engaging and invites interaction. Keep it friendly and conversational. Do not include hashtags.
+    const prompt = `Write a single X tweet about the following market indices using this exact format:
+
+Currently markets are trading at below levels -
+
+[List the indices with their changes, e.g., NIFTY 50 ⬆️ 0.38%, BANK NIFTY ⬇️ 0.77%, SENSEX ⬇️ 0.39%]
+
+[Add a question to invite interaction, like "What are your thoughts on today's moves?"]
+
+Do not include hashtags in the tweet body.
 
 Index data:
 ${indexData}`;
