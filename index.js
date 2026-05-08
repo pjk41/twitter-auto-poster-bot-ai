@@ -131,11 +131,13 @@ async function fetchIndexMetrics(ticker) {
     const latest = points[points.length - 1];
     const previous = points[points.length - 2];
     const changePercent = ((latest.close - previous.close) / previous.close) * 100;
+    const changePoints = latest.close - previous.close;
 
     return {
       ticker,
       latestClose: latest.close,
       changePercent,
+      changePoints,
     };
   } catch (err) {
     console.warn(`⚠️ Failed to fetch metrics for index ${ticker}:`, err.message || err);
@@ -157,41 +159,48 @@ async function runMarketPulse() {
       })
     );
 
-    const indexLines = snapshots.map((snapshot, idx) => {
+    const indexLines = snapshots.map((snapshot) => {
       if (!snapshot.latestClose) {
         return `${snapshot.label} data unavailable`;
       }
 
-      const changeText = typeof snapshot.changePercent === "number"
-        ? `${snapshot.changePercent >= 0 ? "⬆️" : "⬇️"} ${Math.abs(snapshot.changePercent).toFixed(2)}%`
-        : "change unavailable";
+      const arrow = snapshot.changePercent >= 0 ? "⬆️" : "⬇️";
+      const signedPercent = `${snapshot.changePercent >= 0 ? "+" : "-"}${Math.abs(snapshot.changePercent).toFixed(2)}`;
+      const pointChange = typeof snapshot.changePoints === "number"
+        ? Math.abs(snapshot.changePoints).toFixed(2)
+        : "N/A";
 
-      const lineEnd = idx < snapshots.length - 1 ? "," : "";
-      return `${snapshot.label} ${changeText}${lineEnd}`;
+      return `${snapshot.label} : ${snapshot.latestClose.toFixed(2)} ${arrow} ${signedPercent}% (${pointChange} points)`;
     });
 
     const indexData = indexLines.join("\n");
 
-    const prompt = `Write a single X tweet about the following market indices using this exact format:
+    const questions = [
+      "Where are we heading?",
+      "Closing positive or negative today?",
+      "What's cooking?",
+      "Any thoughts on today's move?",
+      "Today's highlight?",
+      "Bulls or bears — who will win?",
+      "What are your thoughts on today's moves?",
+      "Which index reaction stood out to you?",
+      "What caught your attention in today's session?",
+      "How are you viewing the market from here?",
+      "What are you watching as markets digest this action?",
+    ];
+    const question = questions[Math.floor(Math.random() * questions.length)];
 
-Currently markets are trading at below levels -
-
-[List the indices with their changes, e.g., NIFTY 50 ⬆️ 0.38%, BANK NIFTY ⬇️ 0.77%, SENSEX ⬇️ 0.39%]
-
-[Add a question to invite interaction, like "What are your thoughts on today's moves?"]
-
-Do not include hashtags in the tweet body.
-
-Index data:
-${indexData}`;
-
-    const raw = await generateTweet(prompt);
-    const tweetBody = raw.replace(/```/g, "").trim();
+    const tweetBody = `Currently markets are trading at below levels -\n\n${indexData}\n\n${question}`;
 
     const hashtags = ["#Nifty", "#BankNifty", "#Sensex", ...FIXED_HASHTAGS];
-    const uniqueHashtags = [...new Set(hashtags)].join(" ");
+    const uniqueHashtags = [...new Set(hashtags)];
+    const shuffledHashtags = uniqueHashtags
+      .map((tag) => ({ tag, sort: Math.random() }))
+      .sort((a, b) => a.sort - b.sort)
+      .map((item) => item.tag)
+      .join(" ");
 
-    const tweetText = `${tweetBody}\n\n${uniqueHashtags}`;
+    const tweetText = `${tweetBody}\n\n${shuffledHashtags}`;
 
     console.log("🧠 Market Pulse tweet generated");
     await sendTweet(tweetText);
