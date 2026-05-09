@@ -26,6 +26,19 @@ const FIXED_HASHTAGS = [
   "#StocksToWatch",
 ];
 
+const INVESTING_HASHTAGS = [
+  "#Investing",
+  "#Trading",
+  "#StockMarket",
+  "#Finance",
+  "#Money",
+  "#Wealth",
+  "#FinancialFreedom",
+  "#Investment",
+  "#TradingPsychology",
+  "#MarketWisdom"
+];
+
 const MARKET_INDEXES = [
   { label: "NIFTY 50", ticker: "^NSEI" },
   { label: "BANK NIFTY", ticker: "^NSEBANK" },
@@ -145,6 +158,57 @@ async function fetchIndexMetrics(ticker) {
   }
 }
 
+async function postRandomInvestingQuote() {
+  try {
+    console.log("💡 Generating random investing quote with Gemini...");
+
+    const quotePrompt = `Generate a single random investing or trading quote. Choose from famous investors, traders, or financial experts like Warren Buffett, Benjamin Graham, Peter Lynch, Jesse Livermore, Charlie Munger, etc.
+
+Requirements:
+- Make it insightful and educational
+- Keep it concise (under 150 characters)
+- Include the author's name
+- Focus on investing wisdom, risk management, market psychology, or trading principles
+
+Return ONLY in this exact JSON format:
+{
+  "quote": "The quote text here",
+  "author": "Author Name"
+}
+
+Do not include any other text or explanation.`;
+
+    const rawResponse = await generateTweet(quotePrompt);
+    const cleaned = rawResponse.replace(/```json/gi, "").replace(/```/g, "").trim();
+
+    let quoteData;
+    try {
+      quoteData = JSON.parse(cleaned);
+    } catch (err) {
+      console.error("❌ Gemini returned invalid JSON for quote:", cleaned);
+      // Fallback to a default quote
+      quoteData = {
+        quote: "The stock market is a device for transferring money from the impatient to the patient.",
+        author: "Warren Buffett"
+      };
+    }
+
+    const shuffledHashtags = INVESTING_HASHTAGS
+      .map(tag => ({ tag, sort: Math.random() }))
+      .sort((a, b) => a.sort - b.sort)
+      .map(item => item.tag)
+      .slice(0, 4)
+      .join(" ");
+
+    const tweetText = `"${quoteData.quote}"\n\n— ${quoteData.author}\n\n${shuffledHashtags}`;
+
+    await sendTweet(tweetText);
+    console.log("💡 AI-generated investing quote posted successfully");
+  } catch (err) {
+    console.error("❌ Failed to post investing quote:", err);
+  }
+}
+
 async function runMarketPulse() {
   try {
     console.log("📈 Running Market Pulse workflow...");
@@ -204,6 +268,14 @@ async function runMarketPulse() {
 
     console.log("🧠 Market Pulse tweet generated");
     await sendTweet(tweetText);
+
+    // Schedule follow-up investing quote in 3-5 minutes
+    const followUpDelay = (3 + Math.random() * 2) * 60 * 1000; // 3-5 minutes in milliseconds
+    console.log(`⏰ Scheduling follow-up investing quote in ${Math.round(followUpDelay / 1000 / 60)} minutes`);
+    setTimeout(() => {
+      postRandomInvestingQuote();
+    }, followUpDelay);
+
   } catch (err) {
     console.error("❌ Market Pulse workflow failed:", err);
   }
@@ -219,7 +291,8 @@ function scheduleMarketPulse() {
     if (isTradingDay(getISTDate(new Date()))) {
       await runMarketPulse();
     } else {
-      console.log("🚫 Today is a holiday or weekend. Skipping scheduled Market Pulse.");
+      console.log("🏖️ Today is a holiday or weekend. Posting investing quote instead.");
+      await postRandomInvestingQuote();
     }
     scheduleMarketPulse();
   }, Math.max(delayMs, 0));
