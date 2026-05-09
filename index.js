@@ -213,6 +213,13 @@ async function runMarketPulse() {
   try {
     console.log("📈 Running Market Pulse workflow...");
 
+    // Check if it's a trading day - if not, post quote instead
+    if (!isTradingDay(getISTDate(new Date()))) {
+      console.log("🏖️ Today is a holiday or weekend. Posting investing quote instead.");
+      await postRandomInvestingQuote();
+      return;
+    }
+
     const snapshots = await Promise.all(
       MARKET_INDEXES.map(async (index) => {
         const metrics = await fetchIndexMetrics(index.ticker);
