@@ -26,36 +26,10 @@ const FIXED_HASHTAGS = [
   "#StocksToWatch",
 ];
 
-const INVESTING_HASHTAGS = [
-  "#Investing",
-  "#Trading",
-  "#StockMarket",
-  "#Finance",
-  "#Money",
-  "#Wealth",
-  "#FinancialFreedom",
-  "#Investment",
-  "#TradingPsychology",
-  "#MarketWisdom"
-];
-
 const MARKET_INDEXES = [
   { label: "NIFTY 50", ticker: "^NSEI" },
   { label: "BANK NIFTY", ticker: "^NSEBANK" },
   { label: "SENSEX", ticker: "^BSESN" },
-];
-
-const INVESTING_QUOTE_FALLBACKS = [
-  { quote: "The stock market is a device for transferring money from the impatient to the patient.", author: "Warren Buffett" },
-  { quote: "Price is what you pay. Value is what you get.", author: "Warren Buffett" },
-  { quote: "The individual investor should act consistently as an investor and not as a speculator.", author: "Ben Graham" },
-  { quote: "Know what you own, and know why you own it.", author: "Peter Lynch" },
-  { quote: "Risk comes from not knowing what you are doing.", author: "Warren Buffett" },
-  { quote: "In the short run, the market is a voting machine but in the long run it is a weighing machine.", author: "Benjamin Graham" },
-  { quote: "The goal of a successful trader is to make the best trades. Money is secondary.", author: "Alexander Elder" },
-  { quote: "Do not be embarrassed by your failures, learn from them and start again.", author: "Richard Branson" },
-  { quote: "Successful investing is about managing risk, not avoiding it.", author: "Benjamin Graham" },
-  { quote: "Study the market in depth before committing capital. Opportunity reveals itself to prepared minds.", author: "Jesse Livermore" },
 ];
 
 const TRADING_HOLIDAYS = (process.env.MARKET_HOLIDAYS || "2025-01-26,2025-03-29,2025-08-15,2025-10-02,2025-10-22,2025-12-25,2026-01-26,2026-03-25,2026-08-15,2026-10-02,2026-11-04,2026-12-25")
@@ -64,7 +38,6 @@ const TRADING_HOLIDAYS = (process.env.MARKET_HOLIDAYS || "2025-01-26,2025-03-29,
   .filter(Boolean);
 
 const BOT_MODE = process.env.MODE?.trim().toLowerCase() || "daily_thread";
-let lastInvestingQuote = null;
 
 function getISTDate(date = new Date()) {
   const [month, day, yearAndTime] = date
@@ -172,89 +145,13 @@ async function fetchIndexMetrics(ticker) {
   }
 }
 
-function getRandomInvestingQuoteFallback() {
-  const options = INVESTING_QUOTE_FALLBACKS.filter(
-    (item) => !lastInvestingQuote || item.quote !== lastInvestingQuote.quote
-  );
-  const fallback = options.length
-    ? options[Math.floor(Math.random() * options.length)]
-    : INVESTING_QUOTE_FALLBACKS[Math.floor(Math.random() * INVESTING_QUOTE_FALLBACKS.length)];
-  lastInvestingQuote = fallback;
-  return fallback;
-}
-
-async function postRandomInvestingQuote() {
-  try {
-    console.log("💡 Generating random investing quote with Gemini...");
-
-    const quotePrompt = `Generate a single random investing or trading quote. Choose from famous investors, traders, or financial experts like Warren Buffett, Benjamin Graham, Peter Lynch, Jesse Livermore, Charlie Munger, etc.
-
-Requirements:
-- Make it insightful and educational
-- Keep it concise (under 150 characters)
-- Include the author's name
-- Focus on investing wisdom, risk management, market psychology, or trading principles
-- Do NOT repeat any quote used in previous runs.
-
-Return ONLY in this exact JSON format:
-{
-  "quote": "The quote text here",
-  "author": "Author Name"
-}
-
-Do not include any other text or explanation.`;
-
-    const rawResponse = await generateTweet(quotePrompt);
-    const cleaned = rawResponse.replace(/```json/gi, "").replace(/```/g, "").trim();
-
-    let quoteData;
-    try {
-      quoteData = JSON.parse(cleaned);
-      if (!quoteData?.quote || !quoteData?.author) {
-        throw new Error("Incomplete quote JSON");
-      }
-
-      quoteData.quote = quoteData.quote.trim();
-      quoteData.author = quoteData.author.trim();
-
-      if (!quoteData.quote || !quoteData.author || quoteData.quote === lastInvestingQuote?.quote) {
-        throw new Error("Invalid or repeated quote");
-      }
-    } catch (err) {
-      if (err.message && err.message.includes("Invalid or repeated quote")) {
-        console.warn("⚠️ Gemini produced a repeated or incomplete quote. Falling back to a local quote.");
-      } else {
-        console.error("❌ Gemini returned invalid JSON for quote:", cleaned);
-      }
-      quoteData = getRandomInvestingQuoteFallback();
-    }
-
-    lastInvestingQuote = quoteData;
-
-    const shuffledHashtags = INVESTING_HASHTAGS
-      .map(tag => ({ tag, sort: Math.random() }))
-      .sort((a, b) => a.sort - b.sort)
-      .map(item => item.tag)
-      .slice(0, 4)
-      .join(" ");
-
-    const tweetText = `"${quoteData.quote}"\n\n— ${quoteData.author}\n\n${shuffledHashtags}`;
-
-    await sendTweet(tweetText);
-    console.log("💡 AI-generated investing quote posted successfully");
-  } catch (err) {
-    console.error("❌ Failed to post investing quote:", err);
-  }
-}
-
 async function runMarketPulse() {
   try {
     console.log("📈 Running Market Pulse workflow...");
 
-    // Check if it's a trading day - if not, post quote instead
+    // Check if it's a trading day - if not, skip posting Market Pulse
     if (!isTradingDay(getISTDate(new Date()))) {
-      console.log("🏖️ Today is a holiday or weekend. Posting investing quote instead.");
-      await postRandomInvestingQuote();
+      console.log("🏖️ Today is a holiday or weekend. Skipping Market Pulse tweet.");
       return;
     }
 
@@ -314,12 +211,7 @@ async function runMarketPulse() {
     console.log("🧠 Market Pulse tweet generated");
     await sendTweet(tweetText);
 
-    // Schedule follow-up investing quote in 3-5 minutes
-    const followUpDelay = (3 + Math.random() * 2) * 60 * 1000; // 3-5 minutes in milliseconds
-    console.log(`⏰ Scheduling follow-up investing quote in ${Math.round(followUpDelay / 1000 / 60)} minutes`);
-    setTimeout(() => {
-      postRandomInvestingQuote();
-    }, followUpDelay);
+    console.log("✅ Market Pulse posted. No follow-up quote will be added.");
 
   } catch (err) {
     console.error("❌ Market Pulse workflow failed:", err);
@@ -336,8 +228,7 @@ function scheduleMarketPulse() {
     if (isTradingDay(getISTDate(new Date()))) {
       await runMarketPulse();
     } else {
-      console.log("🏖️ Today is a holiday or weekend. Posting investing quote instead.");
-      await postRandomInvestingQuote();
+      console.log("🏖️ Today is a holiday or weekend. Skipping Market Pulse tweet.");
     }
     scheduleMarketPulse();
   }, Math.max(delayMs, 0));
