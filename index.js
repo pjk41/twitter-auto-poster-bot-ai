@@ -114,7 +114,7 @@ async function fetchIndexMetrics(ticker) {
   if (!ticker) return null;
 
   try {
-    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?interval=5m&range=2d`;
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?interval=1m&range=1d`;
     const response = await fetch(url, {
       headers: {
         "User-Agent": "Mozilla/5.0",
@@ -155,6 +155,13 @@ async function fetchIndexMetrics(ticker) {
     const previous = todaysPoints[todaysPoints.length - 2];
     const changePercent = ((latest.close - previous.close) / previous.close) * 100;
     const changePoints = latest.close - previous.close;
+    const latestAgeMinutes = Math.round((Date.now() - latest.date.getTime()) / 60000);
+    if (latestAgeMinutes > 10) {
+      console.warn(
+        `⚠️ Latest quote for ${ticker} is ${latestAgeMinutes} minutes old. Skipping this index.`
+      );
+      return null;
+    }
 
     return {
       ticker,
@@ -163,6 +170,7 @@ async function fetchIndexMetrics(ticker) {
       changePoints,
       latestDate: `${formatISTDateTime(latest.date)} IST`,
       isCurrentDay: true,
+      latestAgeMinutes,
     };
   } catch (err) {
     console.warn(`⚠️ Failed to fetch metrics for index ${ticker}:`, err.message || err);
