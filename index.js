@@ -27,10 +27,12 @@ const FIXED_HASHTAGS = [
 ];
 
 const MARKET_INDEXES = [
-  { label: "NIFTY 50", ticker: "^NSEI" },
-  { label: "BANK NIFTY", ticker: "^NSEBANK" },
-  { label: "SENSEX", ticker: "^BSESN" },
+  { label: "NIFTY 50", source: "nse", ticker: "^NSEI", nseIndex: "NIFTY 50" },
+  { label: "BANK NIFTY", source: "nse", ticker: "^NSEBANK", nseIndex: "NIFTY BANK" },
+  { label: "SENSEX", source: "google", ticker: "^BSESN" },
 ];
+
+const NSE_ALL_INDICES_URL = "https://www.nseindia.com/api/allIndices";
 
 const TRADING_HOLIDAYS = (process.env.MARKET_HOLIDAYS || "2025-01-26,2025-03-29,2025-08-15,2025-10-02,2025-10-22,2025-12-25,2026-01-26,2026-03-25,2026-08-15,2026-10-02,2026-11-04,2026-12-25")
   .split(",")
@@ -110,7 +112,43 @@ function getNextMarketPulseTime(reference = new Date()) {
   return makeISTEvent(nextDay, 9, 30);
 }
 
-async function fetchIndexMetrics(ticker) {
+async function fetchNseIndexMetrics(indexName, ticker) {
+  if (!indexName || !ticker) return null;
+
+  try {
+    const response = await fetch(NSE_ALL_INDICES_URL, {
+      headers: {
+        "User-Agent": "Mozilla/5.0",
+      },
+    });
+    if (!response.ok) return null;
+
+    const data = await response.json();
+    const row = (data.data || []).find(
+      (item) => item.index === indexName || item.indexSymbol === indexName
+    );
+    if (!row || typeof row.last !== "number") return null;
+
+    const latest = row.last;
+    const changePercent = parseFloat(row.percentChange) || 0;
+    const changePoints = parseFloat(row.variation) || 0;
+
+    return {
+      ticker,
+      latestClose: latest,
+      changePercent,
+      changePoints,
+      latestDate: `${formatISTDateTime(new Date())} IST`,
+      isCurrentDay: true,
+      source: "nse",
+    };
+  } catch (err) {
+    console.warn(`⚠️ Failed to fetch NSE metrics for ${indexName}:`, err.message || err);
+    return null;
+  }
+}
+
+async function fetchYahooIndexMetrics(ticker) {
   if (!ticker) return null;
 
   try {
@@ -156,7 +194,7 @@ async function fetchIndexMetrics(ticker) {
     const changePercent = ((latest.close - previous.close) / previous.close) * 100;
     const changePoints = latest.close - previous.close;
     const latestAgeMinutes = Math.round((Date.now() - latest.date.getTime()) / 60000);
-    if (latestAgeMinutes > 10) {
+    if (latestAgeMinutes > 30) {
       console.warn(
         `⚠️ Latest quote for ${ticker} is ${latestAgeMinutes} minutes old. Skipping this index.`
       );
@@ -171,11 +209,81 @@ async function fetchIndexMetrics(ticker) {
       latestDate: `${formatISTDateTime(latest.date)} IST`,
       isCurrentDay: true,
       latestAgeMinutes,
+      source: "yahoo",
     };
   } catch (err) {
-    console.warn(`⚠️ Failed to fetch metrics for index ${ticker}:`, err.message || err);
+    console.warn(`⚠️ Failed to fetch Yahoo metrics for index ${ticker}:`, err.message || err);
     return null;
   }
+}
+
+async function fetchGoogleSensexMetrics() {
+  const url = "https://www.google.com/finance/quote/SENSEX:INDEXBOM";
+  try {
+    const response = await fetch(url, {
+      headers: {
+        "User-Agent": "Mozilla/5.0",
+      },
+    });
+    if (!response.ok) return null;
+
+    const html = await response.text();
+    const match = html.match(/AF_initDataCallback\(\{key: 'ds:7',[\s\S]*?\}\);/);
+    if (!match) return null;
+
+    const snippet = match[0].replace(/^AF_initDataCallback\(/, "(").replace(/\);$/, ")");
+    const payload = eval(snippet);
+    const row = payload?.data?.[0]?.[0];
+    const bars = row?.[3]?.[0]?.[1];
+    if (!Array.isArray(bars) || bars.length === 0) return null;
+
+    const latestBar = bars[bars.length - 1];
+    const timeParts = latestBar?.[0];
+    const priceData = latestBar?.[1];
+    if (!Array.isArray(timeParts) || !Array.isArray(priceData)) return null;
+
+    const [year, month, day, hour, minute] = timeParts;
+    const offsetSeconds = (timeParts?.[7]?.[0]) ?? 0;
+    const sign = offsetSeconds >= 0 ? "+" : "-";
+    const absOffset = Math.abs(offsetSeconds);
+    const offsetHours = String(Math.floor(absOffset / 3600)).padStart(2, "0");
+    const offsetMinutes = String((absOffset % 3600) / 60).padStart(2, "0");
+    const timestamp = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}T${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}:00${sign}${offsetHours}:${offsetMinutes}`;
+    const date = new Date(timestamp);
+
+    const latestClose = row?.[6] ?? priceData[0];
+    const changePoints = Number(priceData[1]) || 0;
+    const changePercent = Number(priceData[2]) * 100 || 0;
+    const latestAgeMinutes = Math.round((Date.now() - date.getTime()) / 60000);
+    if (latestAgeMinutes > 30) {
+      console.warn(`⚠️ Latest Google Sensex quote is ${latestAgeMinutes} minutes old. Skipping.`);
+      return null;
+    }
+
+    return {
+      ticker: "^BSESN",
+      latestClose,
+      changePercent,
+      changePoints,
+      latestDate: `${formatISTDateTime(date)} IST`,
+      isCurrentDay: true,
+      latestAgeMinutes,
+      source: "google",
+    };
+  } catch (err) {
+    console.warn(`⚠️ Failed to fetch Google Sensex metrics:`, err.message || err);
+    return null;
+  }
+}
+
+async function fetchIndexMetrics({ source, ticker, nseIndex }) {
+  if (source === "nse") {
+    return fetchNseIndexMetrics(nseIndex, ticker);
+  }
+  if (source === "google") {
+    return fetchGoogleSensexMetrics();
+  }
+  return fetchYahooIndexMetrics(ticker);
 }
 
 async function runMarketPulse() {
@@ -190,7 +298,7 @@ async function runMarketPulse() {
 
     const snapshots = await Promise.all(
       MARKET_INDEXES.map(async (index) => {
-        const metrics = await fetchIndexMetrics(index.ticker);
+        const metrics = await fetchIndexMetrics(index);
         return {
           label: index.label,
           ...(metrics || {}),
