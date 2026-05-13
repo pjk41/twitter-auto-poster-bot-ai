@@ -56,6 +56,18 @@ function getISTDateString(date = new Date()) {
   return getISTDate(date).toISOString().split("T")[0];
 }
 
+function formatISTDateTime(date = new Date()) {
+  return getISTDate(date).toISOString().replace("T", " ").slice(0, 19);
+}
+
+function getISTDateOnly(date = new Date()) {
+  return getISTDateString(date);
+}
+
+function isSameISTDay(dateA, dateB = new Date()) {
+  return getISTDateOnly(dateA) === getISTDateOnly(dateB);
+}
+
 function isWeekend(date) {
   const day = date.getUTCDay();
   return day === 0 || day === 6;
@@ -102,7 +114,7 @@ async function fetchIndexMetrics(ticker) {
   if (!ticker) return null;
 
   try {
-    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?interval=1d&range=5d`;
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?interval=5m&range=2d`;
     const response = await fetch(url, {
       headers: {
         "User-Agent": "Mozilla/5.0",
@@ -124,12 +136,23 @@ async function fetchIndexMetrics(ticker) {
         open: opens[index],
         timestamp: timestamps[index],
       }))
-      .filter((item) => typeof item.close === "number" && typeof item.open === "number");
+      .filter((item) =>
+        typeof item.close === "number" &&
+        typeof item.open === "number" &&
+        typeof item.timestamp === "number"
+      )
+      .map((item) => ({
+        ...item,
+        date: new Date(item.timestamp * 1000),
+        istDate: getISTDateOnly(new Date(item.timestamp * 1000)),
+      }));
 
-    if (points.length < 2) return null;
+    const todayIst = getISTDateOnly(new Date());
+    const todaysPoints = points.filter((item) => item.istDate === todayIst);
+    if (todaysPoints.length < 2) return null;
 
-    const latest = points[points.length - 1];
-    const previous = points[points.length - 2];
+    const latest = todaysPoints[todaysPoints.length - 1];
+    const previous = todaysPoints[todaysPoints.length - 2];
     const changePercent = ((latest.close - previous.close) / previous.close) * 100;
     const changePoints = latest.close - previous.close;
 
@@ -138,6 +161,8 @@ async function fetchIndexMetrics(ticker) {
       latestClose: latest.close,
       changePercent,
       changePoints,
+      latestDate: `${formatISTDateTime(latest.date)} IST`,
+      isCurrentDay: true,
     };
   } catch (err) {
     console.warn(`⚠️ Failed to fetch metrics for index ${ticker}:`, err.message || err);
@@ -164,6 +189,16 @@ async function runMarketPulse() {
         };
       })
     );
+
+    const allRealTime = snapshots.every(
+      (snapshot) => snapshot.latestClose && snapshot.isCurrentDay
+    );
+    if (!allRealTime) {
+      console.log(
+        "⚠️ Real-time market data unavailable for one or more indices. Skipping Market Pulse tweet."
+      );
+      return;
+    }
 
     const indexLines = snapshots.map((snapshot) => {
       if (!snapshot.latestClose) {
