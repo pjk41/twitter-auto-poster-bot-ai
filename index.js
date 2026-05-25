@@ -29,7 +29,7 @@ const FIXED_HASHTAGS = [
 const MARKET_INDEXES = [
   { label: "NIFTY 50", source: "nse", ticker: "^NSEI", nseIndex: "NIFTY 50" },
   { label: "BANK NIFTY", source: "nse", ticker: "^NSEBANK", nseIndex: "NIFTY BANK" },
-  { label: "SENSEX", source: "google", ticker: "^BSESN" },
+  { label: "SENSEX", source: "yahoo", ticker: "^BSESN" },
 ];
 
 const NSE_ALL_INDICES_URL = "https://www.nseindia.com/api/allIndices";
@@ -217,71 +217,9 @@ async function fetchYahooIndexMetrics(ticker) {
   }
 }
 
-async function fetchGoogleSensexMetrics() {
-  const url = "https://www.google.com/finance/quote/SENSEX:INDEXBOM";
-  try {
-    const response = await fetch(url, {
-      headers: {
-        "User-Agent": "Mozilla/5.0",
-      },
-    });
-    if (!response.ok) return null;
-
-    const html = await response.text();
-    const match = html.match(/AF_initDataCallback\(\{key: 'ds:7',[\s\S]*?\}\);/);
-    if (!match) return null;
-
-    const snippet = match[0].replace(/^AF_initDataCallback\(/, "(").replace(/\);$/, ")");
-    const payload = eval(snippet);
-    const row = payload?.data?.[0]?.[0];
-    const bars = row?.[3]?.[0]?.[1];
-    if (!Array.isArray(bars) || bars.length === 0) return null;
-
-    const latestBar = bars[bars.length - 1];
-    const timeParts = latestBar?.[0];
-    const priceData = latestBar?.[1];
-    if (!Array.isArray(timeParts) || !Array.isArray(priceData)) return null;
-
-    const [year, month, day, hour, minute] = timeParts;
-    const offsetSeconds = (timeParts?.[7]?.[0]) ?? 0;
-    const sign = offsetSeconds >= 0 ? "+" : "-";
-    const absOffset = Math.abs(offsetSeconds);
-    const offsetHours = String(Math.floor(absOffset / 3600)).padStart(2, "0");
-    const offsetMinutes = String((absOffset % 3600) / 60).padStart(2, "0");
-    const timestamp = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}T${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}:00${sign}${offsetHours}:${offsetMinutes}`;
-    const date = new Date(timestamp);
-
-    const latestClose = row?.[6] ?? priceData[0];
-    const changePoints = Number(priceData[1]) || 0;
-    const changePercent = Number(priceData[2]) * 100 || 0;
-    const latestAgeMinutes = Math.round((Date.now() - date.getTime()) / 60000);
-    if (latestAgeMinutes > 30) {
-      console.warn(`⚠️ Latest Google Sensex quote is ${latestAgeMinutes} minutes old. Skipping.`);
-      return null;
-    }
-
-    return {
-      ticker: "^BSESN",
-      latestClose,
-      changePercent,
-      changePoints,
-      latestDate: `${formatISTDateTime(date)} IST`,
-      isCurrentDay: true,
-      latestAgeMinutes,
-      source: "google",
-    };
-  } catch (err) {
-    console.warn(`⚠️ Failed to fetch Google Sensex metrics:`, err.message || err);
-    return null;
-  }
-}
-
 async function fetchIndexMetrics({ source, ticker, nseIndex }) {
   if (source === "nse") {
     return fetchNseIndexMetrics(nseIndex, ticker);
-  }
-  if (source === "google") {
-    return fetchGoogleSensexMetrics();
   }
   return fetchYahooIndexMetrics(ticker);
 }
@@ -335,19 +273,22 @@ async function runMarketPulse() {
     const questions = [
       "Where are we heading?",
       "Closing positive or negative today?",
+      "Closing GREEN or RED?",
+      "Which side are you on today, CE or PE?",
+      "Yahan se upar ya neeche?",
       "What's cooking?",
-      "Any thoughts on today's move?",
+      "Thoughts on today's move?",
       "Today's highlight?",
       "Bulls or bears — who will win?",
-      "What are your thoughts on today's moves?",
-      "Which index reaction stood out to you?",
+      "Your thoughts on today's moves?",
+      "Which index reaction stood out?",
       "What caught your attention in today's session?",
       "How are you viewing the market from here?",
       "What are you watching as markets digest this action?",
     ];
     const question = questions[Math.floor(Math.random() * questions.length)];
 
-    const tweetBody = `Currently markets are trading at below levels -\n\n${indexData}\n\n${question}`;
+    const tweetBody = `Currently markets are trading -\n\n${indexData}\n\n${question}`;
 
     const hashtags = ["#Nifty", "#BankNifty", "#Sensex", ...FIXED_HASHTAGS];
     const uniqueHashtags = [...new Set(hashtags)];
