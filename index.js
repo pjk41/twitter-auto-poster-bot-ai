@@ -187,12 +187,27 @@ async function fetchYahooIndexMetrics(ticker) {
 
     const todayIst = getISTDateOnly(new Date());
     const todaysPoints = points.filter((item) => item.istDate === todayIst);
-    if (todaysPoints.length < 2) return null;
+    if (todaysPoints.length < 1) return null;
 
     const latest = todaysPoints[todaysPoints.length - 1];
-    const previous = todaysPoints[todaysPoints.length - 2];
-    const changePercent = ((latest.close - previous.close) / previous.close) * 100;
-    const changePoints = latest.close - previous.close;
+    const previousClose = result.meta?.previousClose ?? result.meta?.chartPreviousClose ?? null;
+    let changePoints;
+    let changePercent;
+
+    if (typeof previousClose === "number" && previousClose > 0) {
+      changePoints = latest.close - previousClose;
+      changePercent = (changePoints / previousClose) * 100;
+    } else if (todaysPoints.length >= 2) {
+      const previous = todaysPoints[todaysPoints.length - 2];
+      changePoints = latest.close - previous.close;
+      changePercent = (changePoints / previous.close) * 100;
+      console.warn(
+        `⚠️ Previous close unavailable for ${ticker}; falling back to prior intraday bar for delta calculation.`
+      );
+    } else {
+      return null;
+    }
+
     const latestAgeMinutes = Math.round((Date.now() - latest.date.getTime()) / 60000);
     if (latestAgeMinutes > 30) {
       console.warn(
